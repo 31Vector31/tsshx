@@ -1,7 +1,8 @@
 {
   "name": "tsshx",
   "version": "0.1.0",
-  "description": "SSH terminal with credential vault, integrated SFTP/FTP file manager and remote directory indexer",
+  "description": "tsshx",
+  "author": "yura",
   "main": "src/main/main.js",
   "scripts": {
     "start": "electron .",
@@ -13,28 +14,6 @@
   },
   "license": "MIT",
   "private": true,
-  "dependencies": {
-    "@xterm/addon-clipboard": "^0.1.0",
-    "@xterm/addon-fit": "^0.10.0",
-    "@xterm/addon-search": "^0.15.0",
-    "@xterm/addon-unicode11": "^0.8.0",
-    "@xterm/addon-web-links": "^0.11.0",
-    "@xterm/addon-webgl": "^0.18.0",
-    "@xterm/xterm": "^5.5.0",
-    "basic-ftp": "^5.3.1",
-    "ssh2": "^1.17.0"
-  },
-  "devDependencies": {
-    "electron": "^44.4.1",
-    "electron-builder": "^26.15.3",
-    "node-pty": "^1.1.0"
-  },
-  "allowScripts": {
-    "electron@44.4.1": true,
-    "ssh2@1.17.0": true,
-    "cpu-features@0.0.10": true,
-    "node-pty@1.1.0": true
-  },
   "build": {
     "appId": "tsshx",
     "productName": "tsshx",
@@ -88,5 +67,27 @@
       "oneClick": false,
       "allowToChangeInstallationDirectory": true
     }
+  },
+  "dependencies": {
+    "@xterm/addon-clipboard": "^0.1.0",
+    "@xterm/addon-fit": "^0.10.0",
+    "@xterm/addon-search": "^0.15.0",
+    "@xterm/addon-unicode11": "^0.8.0",
+    "@xterm/addon-web-links": "^0.11.0",
+    "@xterm/addon-webgl": "^0.18.0",
+    "@xterm/xterm": "^5.5.0",
+    "basic-ftp": "^5.3.1",
+    "ssh2": "^1.17.0"
+  },
+  "devDependencies": {
+    "electron": "^44.4.1",
+    "electron-builder": "^26.15.3",
+    "node-pty": "^1.1.0"
+  },
+  "allowScripts": {
+    "electron@44.4.1": true,
+    "ssh2@1.17.0": true,
+    "cpu-features@0.0.10": true,
+    "node-pty@1.1.0": true
   }
 }

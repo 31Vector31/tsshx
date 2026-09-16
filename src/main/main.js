@@ -11,6 +11,21 @@ const { Indexer } = require('./indexer');
 if (process.env.TERHUI_USER_DATA) app.setPath('userData', process.env.TERHUI_USER_DATA);
 app.setName('terhui');
 
+// ---------- diagnostics: nothing may fail silently ----------
+const SAFE_MODE = process.argv.includes('--safe');
+function logLine(...parts) {
+  const line = `[${new Date().toISOString()}] ${parts.map(p => (p instanceof Error ? (p.stack || p.message) : typeof p === 'string' ? p : JSON.stringify(p))).join(' ')}\n`;
+  try { fs.mkdirSync(app.getPath('userData'), { recursive: true }); fs.appendFileSync(path.join(app.getPath('userData'), 'terhui.log'), line); } catch (_) {}
+  if (process.env.TERHUI_DEBUG || SAFE_MODE) process.stderr.write(line);
+}
+function fatal(where, err) {
+  logLine('FATAL', where, err);
+  const msg = `${where}\n\n${err && err.stack ? err.stack : err}\n\nLog: ${path.join(app.getPath('userData'), 'terhui.log')}`;
+  try { if (app.isReady()) dialog.showErrorBox('terhui: startup error', msg); else app.whenReady().then(() => dialog.showErrorBox('terhui: startup error', msg)); } catch (_) {}
+}
+process.on('uncaughtException', (err) => fatal('uncaughtException', err));
+process.on('unhandledRejection', (err) => fatal('unhandledRejection', err));
+
 const DEFAULT_SETTINGS = {
   locale: 'en', fontFamily: '"JetBrains Mono", "Fira Code", "Cascadia Mono", "DejaVu Sans Mono", "Noto Sans Mono", "Noto Color Emoji", monospace',
   fontSize: 14, lineHeight: 1.15, theme: 'Midnight', scrollback: 10000, cursorStyle: 'bar', cursorBlink: true,
@@ -84,8 +99,8 @@ function handle(channel, fn) {
 
 // ---------- window ----------
 function createWindow() {
-  const integrated = settings.windowFrame !== 'native';
-  const material = process.platform === 'win32' && settings.winMaterial && settings.winMaterial !== 'none' ? settings.winMaterial : null;
+  const integrated = settings.windowFrame !== 'native' && !SAFE_MODE;
+  const material = !SAFE_MODE && process.platform === 'win32' && settings.winMaterial && settings.winMaterial !== 'none' ? settings.winMaterial : null;
   const frameOpts = {};
   if (integrated) {
     if (process.platform === 'darwin') { frameOpts.titleBarStyle = 'hiddenInset'; frameOpts.trafficLightPosition = { x: 12, y: 9 }; }
@@ -100,7 +115,17 @@ function createWindow() {
     webPreferences: { preload: path.join(__dirname, '../preload/preload.js'), contextIsolation: true, sandbox: true, nodeIntegration: false, spellcheck: false },
   });
   win.loadFile(path.join(__dirname, '../renderer/index.html'));
-  win.once('ready-to-show', () => win.show());
+  // Show as soon as anything is ready. On some Windows setups 'ready-to-show' never fires for a
+  // titleBarOverlay window, so 'did-finish-load' and a hard timer are fallbacks — never stay hidden.
+  const reveal = (why) => { if (win && !win.isDestroyed() && !win.isVisible()) { logLine('show window:', why); win.show(); } };
+  win.once('ready-to-show', () => reveal('ready-to-show'));
+  win.webContents.once('did-finish-load', () => setTimeout(() => reveal('did-finish-load'), 200));
+  setTimeout(() => reveal('timeout'), 4000);
+  win.webContents.on('did-fail-load', (_e, code, desc, url) => fatal('Page failed to load', new Error(`${code} ${desc} ${url}`)));
+  win.webContents.on('preload-error', (_e, p, err) => fatal('Preload error in ' + p, err));
+  win.webContents.on('render-process-gone', (_e, d) => fatal('Renderer process gone', new Error(JSON.stringify(d))));
+  win.webContents.on('console-message', (_e, level, message, line, source) => { if (level >= 2 || process.env.TERHUI_DEBUG) logLine('renderer', level >= 3 ? 'ERROR' : 'warn', message, `${source}:${line}`); });
+  logLine('window created', { platform: process.platform, electron: process.versions.electron, frame: frameOpts, safe: SAFE_MODE, userData: app.getPath('userData') });
   win.on('closed', () => { win = null; });
   win.webContents.setWindowOpenHandler(({ url }) => { if (/^https?:/.test(url)) shell.openExternal(url); return { action: 'deny' }; });
   win.on('close', (e) => {
@@ -305,9 +330,9 @@ function isBinary(buf) { const n = Math.min(buf.length, 8000); for (let i = 0; i
 
 // ---------- lifecycle ----------
 const gotLock = app.requestSingleInstanceLock();
-if (!gotLock) { app.quit(); }
+if (!gotLock) { logLine('another instance is running, exiting'); app.quit(); }
 else {
-  app.on('second-instance', () => { if (win) { if (win.isMinimized()) win.restore(); win.focus(); } });
+  app.on('second-instance', () => { if (win) { if (!win.isVisible()) win.show(); if (win.isMinimized()) win.restore(); win.focus(); } });
   app.whenReady().then(() => {
     const ud = app.getPath('userData');
     settings = loadSettings();
@@ -321,7 +346,7 @@ else {
     registerIpc();
     createWindow();
     app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(); });
-  });
+  }).catch(err => fatal('startup', err));
   app.on('window-all-closed', () => { app.quit(); });
   app.on('before-quit', () => { app.__quitting = true; try { sessions && sessions.closeAll(); for (const f of ftpConns.values()) f.close(); } catch (_) {} });
 }
