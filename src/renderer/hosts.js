@@ -7,7 +7,7 @@ window.Hosts = (() => {
   let selectedId = null;
   const collapsed = new Set(JSON.parse(localStorage.getItem('terhui.collapsedGroups') || '[]'));
   const KEEP = '__KEEP_SECRET__';
-  const COLORS = ['', '#4c9be8', '#7bd88f', '#e5c07b', '#e06c75', '#c678dd', '#56b6c2', '#ff9f43', '#8b95a7'];
+  const COLORS = ['', '#4f8cc9', '#6aa66a', '#c9a44f', '#c9605f', '#9b7fc4', '#4fa3a8', '#c98a4f', '#8a8f99'];
 
   function init(a) {
     app = a;
@@ -44,17 +44,18 @@ window.Hosts = (() => {
     const keys = [...groups.keys()].sort((a, b) => (a === '' ? 1 : b === '' ? -1 : a.localeCompare(b)));
     for (const g of keys) {
       if (g) {
-        const gh = h('div', { class: 'host-group' + (collapsed.has(g) && !q ? ' collapsed' : ''), onClick: () => { collapsed.has(g) ? collapsed.delete(g) : collapsed.add(g); localStorage.setItem('terhui.collapsedGroups', JSON.stringify([...collapsed])); render(); } }, g);
+        const gh = h('div', { class: 'host-group', onClick: () => { collapsed.has(g) ? collapsed.delete(g) : collapsed.add(g); localStorage.setItem('terhui.collapsedGroups', JSON.stringify([...collapsed])); render(); } }, Icon(collapsed.has(g) && !q ? 'chevronRight' : 'chevronDown', 12), g);
         list.append(gh);
         if (collapsed.has(g) && !q) continue;
       }
       for (const hh of groups.get(g).sort((a, b) => a.name.localeCompare(b.name))) {
         const live = app.sessionsForHost(hh.id).length > 0;
-        const row = h('div', { class: 'host' + (hh.id === selectedId ? ' selected' : ''), dataset: { id: hh.id }, style: hh.color ? { borderLeftColor: hh.color } : undefined, title: `${hh.username ? hh.username + '@' : ''}${hh.host}:${hh.port}${hh.notes ? '\n' + hh.notes : ''}` },
-          h('div', { class: 'h-color', style: hh.color ? { background: hh.color } : undefined }),
-          h('div', { style: { flex: 1, minWidth: 0 } }, h('div', { class: 'h-name' }, hh.name || hh.host), h('div', { class: 'h-sub' }, `${hh.username ? hh.username + '@' : ''}${hh.host}${hh.port !== (hh.protocol === 'ftp' ? 21 : 22) ? ':' + hh.port : ''}`)),
-          hh.protocol === 'ftp' ? h('span', { class: 'h-proto' }, 'FTP') : null,
-          live ? h('span', { class: 'h-live' }) : null,
+        const row = h('div', { class: 'host' + (hh.id === selectedId ? ' selected' : '') + (g ? '' : ' nogroup'), dataset: { id: hh.id }, title: `${hh.username ? hh.username + '@' : ''}${hh.host}:${hh.port}${hh.notes ? '\n' + hh.notes : ''}` },
+          hh.color ? h('span', { class: 'h-color', style: { background: hh.color } }) : null,
+          h('span', { class: 'h-name' }, hh.name || hh.host),
+          hh.protocol === 'ftp' ? h('span', { class: 'h-proto' }, 'ftp') : null,
+          h('span', { class: 'h-sub' }, `${hh.username ? hh.username + '@' : ''}${hh.host}${hh.port !== (hh.protocol === 'ftp' ? 21 : 22) ? ':' + hh.port : ''}`),
+          live ? h('span', { class: 'h-live', title: 'connected' }, '●') : null,
         );
         row.addEventListener('click', () => select(hh.id));
         row.addEventListener('dblclick', () => connect(hh));

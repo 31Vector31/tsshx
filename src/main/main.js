@@ -18,6 +18,8 @@ const DEFAULT_SETTINGS = {
   localDir: os.homedir(), confirmClose: true, autoLockMinutes: 0, unicodeVersion: '11', ligatures: false,
   // appearance
   bgImage: '', bgDim: 0.55, bgBlur: 0, bgFit: 'cover', termOpacity: 0.85, termPadding: 10, chromeFromTheme: true,
+  // window chrome: 'integrated' = OS frame + Window Controls Overlay (tabs live in the title bar), 'native' = plain OS title bar
+  windowFrame: 'integrated', winMaterial: 'none', chromeBg: '#202329', chromeFg: '#d4d7dd',
 };
 const IMAGE_EXT = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'avif'];
 
@@ -82,9 +84,18 @@ function handle(channel, fn) {
 
 // ---------- window ----------
 function createWindow() {
+  const integrated = settings.windowFrame !== 'native';
+  const material = process.platform === 'win32' && settings.winMaterial && settings.winMaterial !== 'none' ? settings.winMaterial : null;
+  const frameOpts = {};
+  if (integrated) {
+    if (process.platform === 'darwin') { frameOpts.titleBarStyle = 'hiddenInset'; frameOpts.trafficLightPosition = { x: 12, y: 9 }; }
+    else { frameOpts.titleBarStyle = 'hidden'; frameOpts.titleBarOverlay = { color: settings.chromeBg, symbolColor: settings.chromeFg, height: 32 }; }
+  }
+  if (material) { frameOpts.backgroundMaterial = material; }   // Windows 11 Mica / Acrylic; needs a transparent page background
+  nativeTheme.themeSource = isDarkHex(settings.chromeBg) ? 'dark' : 'light';   // dark DWM title bar when the native frame is used
   win = new BrowserWindow({
-    width: 1400, height: 860, minWidth: 700, minHeight: 400,
-    backgroundColor: '#0e1116', title: 'terhui', autoHideMenuBar: true, show: false,
+    width: 1400, height: 860, minWidth: 700, minHeight: 400, ...frameOpts,
+    backgroundColor: material ? '#00000000' : settings.chromeBg, title: 'terhui', autoHideMenuBar: true, show: false,
     icon: path.join(__dirname, '../../assets/icon.png'),
     webPreferences: { preload: path.join(__dirname, '../preload/preload.js'), contextIsolation: true, sandbox: true, nodeIntegration: false, spellcheck: false },
   });
@@ -273,10 +284,23 @@ function registerIpc() {
   handle('clipboard:write', (t) => { clipboard.writeText(String(t)); return true; });
   handle('shell:openExternal', (url) => { if (/^https?:\/\//.test(url)) shell.openExternal(url); return true; });
   handle('window:setTitle', (t) => { if (win) win.setTitle(t); return true; });
+  handle('window:info', () => ({ platform: process.platform, frame: settings.windowFrame !== 'native' ? 'integrated' : 'native', material: process.platform === 'win32' ? (settings.winMaterial || 'none') : 'none', maximized: !!(win && win.isMaximized()) }));
+  // Keep the OS caption buttons / native title bar in the app's colours.
+  handle('window:chrome', ({ bg, fg }) => {
+    settings.chromeBg = bg; settings.chromeFg = fg; saveSettings();
+    nativeTheme.themeSource = isDarkHex(bg) ? 'dark' : 'light';
+    if (win && settings.windowFrame !== 'native' && process.platform !== 'darwin' && typeof win.setTitleBarOverlay === 'function') {
+      try { win.setTitleBarOverlay({ color: bg, symbolColor: fg, height: 32 }); } catch (_) {}
+    }
+    if (win && !(process.platform === 'win32' && settings.winMaterial && settings.winMaterial !== 'none')) win.setBackgroundColor(bg);
+    return true;
+  });
+  handle('app:relaunch', () => { app.__quitting = true; app.relaunch(); app.quit(); return true; });
   handle('theme:native', () => nativeTheme.shouldUseDarkColors);
 }
 
 function shq(s) { return "'" + String(s).replace(/'/g, "'\\''") + "'"; }
+function isDarkHex(c) { const m = String(c || '').match(/^#([0-9a-f]{6})/i); if (!m) return true; const n = parseInt(m[1], 16); return (0.2126 * (n >> 16) + 0.7152 * ((n >> 8) & 255) + 0.0722 * (n & 255)) < 128; }
 function isBinary(buf) { const n = Math.min(buf.length, 8000); for (let i = 0; i < n; i++) { const c = buf[i]; if (c === 0) return true; } return false; }
 
 // ---------- lifecycle ----------

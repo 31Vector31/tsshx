@@ -74,7 +74,7 @@ window.UI = (() => {
   }
 
   function toast(msg, kind = 'info', ms = 3500) {
-    const el = h('div', { class: 'toast ' + kind }, msg);
+    const el = h('div', { class: 'toast ' + kind }, kind === 'error' || kind === 'warn' ? Icon('warning', 14) : null, h('span', null, msg));
     $('#toasts').append(el);
     setTimeout(() => { el.style.opacity = '0'; el.style.transition = 'opacity .3s'; setTimeout(() => el.remove(), 300); }, ms);
     return el;

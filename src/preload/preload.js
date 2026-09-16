@@ -31,7 +31,7 @@ contextBridge.exposeInMainWorld('api', {
   wallpaper: { pick: invoke('wallpaper:pick'), read: invoke('wallpaper:read') },
   clipboard: { read: invoke('clipboard:read'), write: invoke('clipboard:write') },
   shell: { openExternal: invoke('shell:openExternal') },
-  window: { setTitle: invoke('window:setTitle') },
+  window: { setTitle: invoke('window:setTitle'), info: invoke('window:info'), chrome: invoke('window:chrome'), relaunch: invoke('app:relaunch') },
   theme: { native: invoke('theme:native') },
   answerPrompt: (id, value) => ipcRenderer.send('prompt:answer', { id, value }),
   pathForFile: (file) => { try { return webUtils.getPathForFile(file); } catch (_) { return null; } },

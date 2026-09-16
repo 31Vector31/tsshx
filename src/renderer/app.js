@@ -51,10 +51,11 @@ window.App = (() => {
     const box = $('#tabs'); box.innerHTML = '';
     for (const tb of app.tabs) {
       const hh = tb.hostId ? Hosts.byId(tb.hostId) : null;
-      const el = h('div', { class: 'tab' + (tb.id === app.activeId ? ' active' : ''), dataset: { id: tb.id }, title: `${tb.entry.username || ''}@${tb.entry.host}:${tb.entry.port || 22}`, onClick: () => activateTab(tb.id), onAuxclick: (e) => { if (e.button === 1) closeTab(tb.id); } },
-        h('span', { class: 'dot ' + tb.status, style: hh && hh.color && tb.status === 'connected' ? { background: hh.color } : undefined }),
-        h('span', { class: 'title' }, tb.title),
-        h('span', { class: 'close', onClick: (e) => { e.stopPropagation(); closeTab(tb.id); } }, '✕'));
+      const inactive = tb.status !== 'connected' && tb.status !== 'connecting';
+      const el = h('div', { class: 'tab' + (tb.id === app.activeId ? ' active' : '') + (inactive ? ' inactive' : ''), dataset: { id: tb.id }, title: `${tb.entry.username || ''}@${tb.entry.host}:${tb.entry.port || 22}${inactive ? ' (' + t('tab.inactive') + ')' : ''}`, onClick: () => activateTab(tb.id), onAuxclick: (e) => { if (e.button === 1) closeTab(tb.id); } },
+        hh && hh.color ? h('span', { class: 'hc', style: { background: hh.color } }) : null,
+        h('span', { class: 'title' }, tb.title + (tb.status === 'connecting' ? '…' : '')),
+        h('span', { class: 'close', onClick: (e) => { e.stopPropagation(); closeTab(tb.id); } }, Icon('close', 12)));
       el.addEventListener('contextmenu', (e) => { e.preventDefault(); UI.ctxmenu(e.clientX, e.clientY, [
         { label: t('tab.duplicate'), onClick: () => app.openTerminal({ hostId: tb.hostId, entry: tb.entry }) },
         { label: t('menu.files'), onClick: () => tb.sessionId && Files.openFor({ sessionId: tb.sessionId }), disabled: !tb.sessionId },
@@ -120,11 +121,14 @@ window.App = (() => {
     const s = app.settings;
     const theme = Themes.get(s.theme);
     const dark = Themes.isDark(theme);
-    document.body.className = dark ? 'theme-dark' : 'theme-light';
+    document.body.classList.toggle('theme-dark', dark); document.body.classList.toggle('theme-light', !dark);
     const root = document.documentElement;
     if (s.chromeFromTheme !== false) for (const [k, v] of Object.entries(Themes.chromeVars(theme))) root.style.setProperty(k, v);
     else for (const k of Object.keys(Themes.chromeVars(theme))) root.style.removeProperty(k);
     root.style.setProperty('--mono', s.fontFamily);
+    // OS title bar / caption buttons follow the UI colours (debounced: theme changes fire this often)
+    const cs = getComputedStyle(root); const bg2 = cs.getPropertyValue('--bg2').trim(), fg = cs.getPropertyValue('--fg').trim();
+    if (bg2 !== app._chromeSent) { app._chromeSent = bg2; clearTimeout(app._chromeTimer); app._chromeTimer = setTimeout(() => window.api.window.chrome({ bg: bg2, fg }), 150); }
     // wallpaper
     const wp = $('#wallpaper'); const center = $('#center');
     if (s.bgImage) {
@@ -168,20 +172,25 @@ window.App = (() => {
     const text = (name, attrs = {}) => { f[name] = h('input', { type: 'text', value: s()[name], spellcheck: 'false', onChange: () => live({ [name]: f[name].value.trim() || snapshot[name] }), ...attrs }); return f[name]; };
     const L = (k) => h('label', null, t(k));
 
-    // --- Appearance: theme swatches
-    const swatches = h('div', { class: 'swatches' });
-    const renderSwatches = () => {
-      swatches.innerHTML = '';
-      for (const [name, th] of Object.entries(Themes.all)) {
-        const sw = h('div', { class: 'swatch' + (name === s().theme ? ' active' : ''), style: { background: th.background, color: th.foreground }, onClick: () => { live({ theme: name }); renderSwatches(); }, title: name },
-          h('div', { class: 'sw-name' }, name),
-          h('div', { class: 'sw-colors' }, ...['red', 'green', 'yellow', 'blue', 'magenta', 'cyan', 'white'].map(c => h('span', { style: { background: th[c] || th.foreground } }))));
-        if (!Themes.builtin[name]) sw.append(h('button', { class: 'mini', style: { alignSelf: 'flex-end' }, onClick: async (e) => { e.stopPropagation(); Themes.setCustom(await window.api.themes.delete(name)); if (s().theme === name) live({ theme: 'Midnight' }); renderSwatches(); } }, t('settings.themes.delete')));
-        swatches.append(sw);
-      }
+    // --- Appearance: colour scheme (select + 16-colour strip preview)
+    const themeSel = h('select', { onChange: () => { live({ theme: themeSel.value }); renderThemePreview(); } });
+    const themePreview = h('div', { class: 'theme-preview' });
+    const btnDeleteTheme = h('button', { onClick: async () => { const n = themeSel.value; if (Themes.builtin[n]) return; Themes.setCustom(await window.api.themes.delete(n)); live({ theme: 'Midnight' }); renderThemeList(); } }, t('settings.themes.delete'));
+    const renderThemeList = () => {
+      themeSel.innerHTML = '';
+      const names = Object.keys(Themes.all);
+      for (const n of names) themeSel.append(h('option', { value: n }, Themes.builtin[n] ? n : n + ' (custom)'));
+      themeSel.value = names.includes(s().theme) ? s().theme : 'Midnight';
+      renderThemePreview();
     };
-    renderSwatches();
-    const btnImportTheme = h('button', { onClick: async () => { try { Themes.setCustom(await window.api.themes.import()); renderSwatches(); } catch (e) { UI.errToast(e); } } }, t('settings.themes.import'));
+    const renderThemePreview = () => {
+      const th = Themes.get(themeSel.value);
+      themePreview.innerHTML = ''; themePreview.style.background = th.background;
+      for (const c of ['black', 'red', 'green', 'yellow', 'blue', 'magenta', 'cyan', 'white', 'brightBlack', 'brightRed', 'brightGreen', 'brightYellow', 'brightBlue', 'brightMagenta', 'brightCyan', 'brightWhite']) themePreview.append(h('span', { style: { background: th[c] || th.foreground }, title: c }));
+      btnDeleteTheme.hidden = !!Themes.builtin[themeSel.value];
+    };
+    renderThemeList();
+    const btnImportTheme = h('button', { title: t('settings.themes.hint'), onClick: async () => { try { Themes.setCustom(await window.api.themes.import()); renderThemeList(); } catch (e) { UI.errToast(e); } } }, t('settings.themes.import'));
 
     // --- wallpaper
     const wpPreview = h('div', { class: 'wp-preview' });
@@ -194,7 +203,8 @@ window.App = (() => {
 
     const pct = (v) => Math.round(v * 100) + '%';
     const appearance = h('div', { class: 'form' },
-      h('div', { class: 'full' }, swatches), h('div', { class: 'full row' }, btnImportTheme, h('span', { class: 'hint' }, t('settings.themes.hint'))),
+      L('settings.theme.pick'), h('div', { class: 'row' }, themeSel, btnImportTheme, btnDeleteTheme),
+      h('label', null, ''), themePreview,
       L('settings.chromeFromTheme'), chk('chromeFromTheme'),
       L('settings.font'), text('fontFamily'),
       L('settings.fontSize'), h('div', { class: 'row' }, num('fontSize', 6, 40), L('settings.lineHeight'), num('lineHeight', 0.8, 2, 0.05)),
@@ -218,6 +228,9 @@ window.App = (() => {
       L('settings.rightClickPaste'), chk('rightClickPaste'),
       L('settings.confirmClose'), chk('confirmClose'),
       L('host.localDir'), text('localDir'),
+      L('settings.windowFrame'), h('div', { class: 'row' }, sel('windowFrame', [['integrated', t('settings.windowFrame.integrated')], ['native', t('settings.windowFrame.native')]], () => { dirty.windowFrame = f.windowFrame.value; app.settings.windowFrame = f.windowFrame.value; }), h('button', { onClick: () => { window.api.settings.set({ ...dirty }); window.api.window.relaunch(); } }, t('settings.restart'))),
+      ...(app.platform === 'win32' ? [L('settings.winMaterial'), sel('winMaterial', [['none', t('settings.winMaterial.none')], ['mica', 'Mica'], ['acrylic', 'Acrylic'], ['tabbed', 'Mica Alt (tabbed)']], () => { dirty.winMaterial = f.winMaterial.value; app.settings.winMaterial = f.winMaterial.value; })] : []),
+      h('div', { class: 'hint' }, t('settings.windowFrame.hint')),
     );
 
     // --- Security
@@ -242,7 +255,7 @@ window.App = (() => {
     showPage('appearance');
 
     UI.modal({ title: t('settings.title'), body, width: '760px', closeOnBack: false, buttons: [
-      { label: t('settings.reset'), onClick: () => { applySettings({ theme: 'Midnight', bgImage: '', bgDim: 0.55, bgBlur: 0, bgFit: 'cover', termOpacity: 0.85, termPadding: 10, chromeFromTheme: true, fontSize: 14, lineHeight: 1.15 }); return UI.KEEP_OPEN; } },
+      { label: t('settings.reset'), onClick: () => { applySettings({ theme: 'Midnight', bgImage: '', bgDim: 0.55, bgBlur: 0, bgFit: 'cover', termOpacity: 0.85, termPadding: 10, chromeFromTheme: true, fontSize: 14, lineHeight: 1.15 }); renderThemeList(); refreshWp(); return UI.KEEP_OPEN; } },
       { label: t('cancel'), onClick: () => { const revert = {}; for (const k of Object.keys(dirty)) revert[k] = snapshot[k]; applySettings(revert, { persist: false }); return null; } },
       { label: t('apply'), primary: true, onClick: () => { window.api.settings.set({ ...dirty }); dirty = {}; return true; } },
     ] });
@@ -257,7 +270,7 @@ window.App = (() => {
       const pw = h('input', { type: 'password', autofocus: true, style: { width: '100%' }, placeholder: t('vault.master') });
       const pw2 = create ? h('input', { type: 'password', style: { width: '100%', marginTop: '6px' }, placeholder: t('vault.master2') }) : null;
       const err = h('div', { class: 'err', style: { minHeight: '18px', marginTop: '6px' } });
-      const body = h('div', { class: 'vault-screen' }, h('div', { class: 'logo' }, 'terhui'), create ? h('p', null, t('vault.create.text')) : null, pw, pw2, err);
+      const body = h('div', { class: 'vault-screen' }, create ? h('p', { class: 'muted', style: { margin: '0 0 10px' } }, t('vault.create.text')) : null, pw, pw2, err);
       const ctl = UI.modal({ title: t(create ? 'vault.create.title' : 'vault.unlock.title'), body, closeOnBack: false, width: '420px', buttons: [{ label: t(create ? 'vault.create' : 'vault.unlock'), primary: true, onClick: async () => {
         try {
           if (create) { if (pw.value !== pw2.value) { err.textContent = t('vault.mismatch'); return UI.KEEP_OPEN; } if (!pw.value) return UI.KEEP_OPEN; await window.api.vault.create(pw.value); }
@@ -356,8 +369,13 @@ window.App = (() => {
 
   // ---------- init ----------
   async function init() {
+    Icon.mount(document);
     app.settings = await window.api.settings.get();
     app.info = await window.api.app.info(); app.home = app.info.home; app.platform = app.info.platform;
+    const wi = await window.api.window.info();
+    document.body.classList.toggle('wco', wi.frame === 'integrated');
+    document.body.classList.toggle('mac', wi.platform === 'darwin');
+    document.body.classList.toggle('material', wi.material !== 'none');
     try { Themes.setCustom(await window.api.themes.list()); } catch (_) {}
     I18N.setLocale(app.settings.locale);
     await applyAppearance();

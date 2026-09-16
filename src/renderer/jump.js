@@ -25,7 +25,7 @@ window.Jump = (() => {
     const btnBuild = h('button', { class: 'mini', onClick: () => build() }, t('jump.build'));
     const btnCancel = h('button', { class: 'mini', onClick: () => window.api.index.cancel(key) }, t('jump.cancel'));
     const foot = h('div', { class: 'foot' }, status, h('div', { class: 'spacer' }), h('label', null, t('jump.root') + ' '), rootInput, h('label', null, filesCb, ' ' + t('jump.files')), btnBuild, btnCancel,
-      h('span', null, h('kbd', null, '↵'), ' cd  ', h('kbd', null, 'Ctrl+↵'), ' files  ', h('kbd', null, 'Esc')));
+      h('span', null, h('kbd', null, 'Enter'), ' cd  ', h('kbd', null, 'Ctrl+Enter'), ' files'));
     const body = h('div', { class: 'jump no-enter' }, q, res, foot);
 
     const renderStatus = () => {

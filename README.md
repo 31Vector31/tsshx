@@ -19,6 +19,9 @@ npm run dist:linux # AppImage + deb   (dist:win → nsis + portable, dist:mac �
 - Reconnect on `Enter` after a dropped session, `Ctrl+Scroll` / `Ctrl +`/`-` zoom.
 - Appearance: 12 built-in colour schemes, import of xterm / Windows Terminal JSON schemes,
   wallpaper (any image) with dim/blur/fit, terminal opacity, padding, font, cursor; the UI is tinted from the scheme.
+- Window: OS frame with Window Controls Overlay (tabs live in the title bar, native caption buttons, Win11 snap layouts and
+  rounded corners; `hiddenInset` on macOS), caption colours follow the theme, optional Mica/Acrylic backdrop on Windows 11.
+  Settings → General → Window frame switches back to a plain native title bar.
 
 **Credential vault**
 - `vault.json` in the user-data dir, AES-256-GCM, key from master password via scrypt (N=2^15).

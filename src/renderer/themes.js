@@ -74,8 +74,8 @@ window.Themes = (() => {
     const step = dark ? '#ffffff' : '#000000';
     return {
       '--bg': bg, '--bg2': mix(bg, step, dark ? 0.035 : 0.03), '--bg3': mix(bg, step, dark ? 0.08 : 0.06), '--hover': mix(bg, step, dark ? 0.06 : 0.05),
-      '--border': mix(bg, step, dark ? 0.12 : 0.12), '--fg': fg, '--fg2': mix(fg, bg, 0.42), '--accent': theme.blue || theme.brightBlue || '#4c9be8', '--accent2': theme.green || '#7bd88f',
-      '--danger': theme.red || '#e06c75', '--warn': theme.yellow || '#e5c07b', '--sel': withAlpha(theme.blue || '#4c9be8', 0.22), '--sel-solid': mix(bg, theme.blue || '#4c9be8', 0.25),
+      '--border': mix(bg, step, dark ? 0.11 : 0.12), '--fg': fg, '--fg2': mix(fg, bg, 0.42), '--accent': mix(theme.blue || '#4f8cc9', fg, 0.15), '--focus': theme.blue || '#4f8cc9', '--accent2': theme.green || '#6aa66a',
+      '--danger': theme.red || '#c9605f', '--warn': theme.yellow || '#c9a44f', '--sel': mix(bg, step, dark ? 0.14 : 0.1),
     };
   }
 

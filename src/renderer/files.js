@@ -9,12 +9,6 @@ window.Files = (() => {
   let showHidden = localStorage.getItem('terhui.showHidden') === '1';
 
   const isRemote = (fsId) => fsId !== 'local';
-  const SVG = {
-    dir: '<svg viewBox="0 0 16 16" width="14" height="14"><path fill="currentColor" d="M1.5 3A1.5 1.5 0 0 1 3 1.5h3.2c.4 0 .8.2 1.1.4l1 1h4.2A1.5 1.5 0 0 1 14 4.5V12A1.5 1.5 0 0 1 12.5 13.5h-9A1.5 1.5 0 0 1 2 12V3z" opacity=".9"/></svg>',
-    file: '<svg viewBox="0 0 16 16" width="14" height="14"><path fill="none" stroke="currentColor" stroke-width="1.3" d="M4 1.5h5l3.5 3.5v9.5h-8.5z M9 1.5V5h3.5"/></svg>',
-    link: '<svg viewBox="0 0 16 16" width="14" height="14"><path fill="none" stroke="currentColor" stroke-width="1.4" d="M6.5 9.5l3-3M5 11a2.5 2.5 0 0 1-3.5-3.5l2-2a2.5 2.5 0 0 1 3.5 0M11 5a2.5 2.5 0 0 1 3.5 3.5l-2 2a2.5 2.5 0 0 1-3.5 0"/></svg>',
-  };
-  const svgIcon = (k) => { const sp = document.createElement('span'); sp.className = 'ic ic-' + k; sp.innerHTML = SVG[k]; return sp; };
   const posixJoin = (a, b) => (a.endsWith('/') ? a : a + '/') + b;
   const joinFor = (fsId, a, b) => (fsId === 'local' && app.platform === 'win32') ? (a.endsWith('\\') ? a + b : a + '\\' + b) : posixJoin(a, b);
   const parentOf = (fsId, p) => {
@@ -32,16 +26,18 @@ window.Files = (() => {
     _build() {
       this.srcSel = h('select', { onChange: () => this.setSource(this.srcSel.value) });
       this.pathInput = h('input', { class: 'pane-path', type: 'text', spellcheck: 'false', onKeydown: (e) => { if (e.key === 'Enter') this.load(this.pathInput.value.trim()); if (e.key === 'Escape') { this.pathInput.value = this.path; this.list.focus(); } } });
-      const tb = (label, title, fn, extra) => h('button', { class: 'mini', title: title || label, onClick: fn, ...(extra || {}) }, label);
-      this.btnFollow = tb('⇆', t('files.follow'), () => { this.follow = !this.follow; this.btnFollow.classList.toggle('primary', this.follow); if (this.follow) { const tab = app.activeTab(); if (tab && tab.cwd) this.load(tab.cwd); } });
-      this.btnCd = tb('cd', t('files.cdTerm'), () => { const tab = app.activeTab(); if (tab && this.fsId === 'sftp:' + tab.sessionId) tab.cd(this.path); });
+      const tb = (icon, title, fn) => h('button', { class: 'icon-btn', title, onClick: fn }, Icon(icon));
+      const sep = () => h('span', { class: 'sep' });
+      this.btnFollow = tb('link', t('files.follow'), () => { this.follow = !this.follow; this.btnFollow.classList.toggle('on', this.follow); if (this.follow) { const tab = app.activeTab(); if (tab && tab.cwd) this.load(tab.cwd); } });
+      this.btnCd = tb('terminal', t('files.cdTerm'), () => { const tab = app.activeTab(); if (tab && this.fsId === 'sftp:' + tab.sessionId) tab.cd(this.path); });
+      this.btnHidden = tb('eye', t('files.hidden') + ' (Ctrl+H)', () => { showHidden = !showHidden; localStorage.setItem('terhui.showHidden', showHidden ? '1' : '0'); panes.forEach(p => { p.btnHidden.classList.toggle('on', showHidden); p.render(); }); });
+      this.btnHidden.classList.toggle('on', showHidden);
       this.tools = h('div', { class: 'pane-tools' },
-        tb('↑', t('files.up'), () => this.up()), tb('⌂', t('files.home'), () => this.home()), tb('⟳', t('files.refresh'), () => this.load(this.path)),
-        tb('•', t('files.hidden'), () => { showHidden = !showHidden; localStorage.setItem('terhui.showHidden', showHidden ? '1' : '0'); panes.forEach(p => p.render()); }),
-        tb('+D', t('files.mkdir') + ' (F7)', () => this.mkdir()), tb('+F', t('files.newfile'), () => this.newFile()),
-        tb('✎', t('files.rename') + ' (F6)', () => this.rename()), tb('✕', t('files.delete') + ' (F8)', () => this.remove()), tb('⚙', t('files.chmod'), () => this.chmod()),
-        tb(this.idx === 0 ? '⇩' : '⇧', t('files.copyTo') + ' (F5)', () => this.copyToOther()),
-        this.btnFollow, this.btnCd,
+        tb('up', t('files.up') + ' (Backspace)', () => this.up()), tb('home', t('files.home'), () => this.home()), tb('refresh', t('files.refresh') + ' (F2)', () => this.load(this.path)), this.btnHidden,
+        sep(), tb('folderPlus', t('files.mkdir') + ' (F7)', () => this.mkdir()), tb('filePlus', t('files.newfile'), () => this.newFile()),
+        tb('edit', t('files.rename') + ' (F6)', () => this.rename()), tb('trash', t('files.delete') + ' (F8)', () => this.remove()), tb('shield', t('files.chmod'), () => this.chmod()),
+        sep(), tb(this.idx === 0 ? 'arrowDown' : 'arrowUp', t('files.copyTo') + ' (F5)', () => this.copyToOther()),
+        sep(), this.btnFollow, this.btnCd,
       );
       this.list = h('div', { class: 'pane-list', tabindex: '0' });
       this.status = h('div', { class: 'pane-status' });
@@ -133,7 +129,7 @@ window.Files = (() => {
       const tbody = h('tbody');
       this.visible.forEach((it, i) => {
         const dir = it.type === 'd' || (it.type === 'l' && it.targetType === 'd');
-        const icon = svgIcon(dir ? 'dir' : it.type === 'l' ? 'link' : 'file');
+        const icon = h('span', { class: 'ic' }, Icon(dir ? 'folder' : it.type === 'l' ? 'link' : 'file', 14));
         const tr = h('tr', { class: (dir ? 'dir' : '') + (it.type === 'l' ? ' link' : '') + (this.selected.has(it.name) ? ' selected' : '') + (i === this.cursor ? ' cursor' : '') + (it.name.startsWith('.') ? ' hiddenf' : ''), dataset: { i }, draggable: 'true', title: it.linkTarget ? '→ ' + it.linkTarget : it.path },
           h('td', null, icon, h('span', { class: 'name' }, it.name)),
           h('td', { class: 'c-size' }, dir ? '' : UI.fmtSize(it.size)),
@@ -141,13 +137,13 @@ window.Files = (() => {
           h('td', { class: 'c-perm' }, it.modeStr || ''));
         tbody.append(tr);
       });
-      const table = h('table', null, h('thead', null, h('tr', null, th('name', t('host.name')), th('size', 'Size', 'c-size'), th('mtime', 'Date', 'c-date'), h('th', { class: 'c-perm' }, 'Mode'))), tbody);
+      const table = h('table', null, h('thead', null, h('tr', null, th('name', t('files.name')), th('size', t('files.size'), 'c-size'), th('mtime', t('files.modified'), 'c-date'), h('th', { class: 'c-perm' }, t('files.mode')))), tbody);
       this.list.innerHTML = ''; this.list.append(table);
       if (msg) this.list.append(h('div', { class: 'empty' }, msg));
       const cur = tbody.children[this.cursor]; if (cur) cur.scrollIntoView({ block: 'nearest' });
       const selSize = this.visible.filter(x => this.selected.has(x.name)).reduce((a, x) => a + (x.size || 0), 0);
       this.status.innerHTML = '';
-      this.status.append(h('span', null, t('files.items', { n: this.visible.length })), this.selected.size ? h('span', null, t('files.selected', { n: this.selected.size }) + ' · ' + UI.fmtSize(selSize)) : '', this.filter ? h('span', { class: 'warn' }, '⌕ ' + this.filter) : '');
+      this.status.append(h('span', null, t('files.items', { n: this.visible.length })), this.selected.size ? h('span', null, t('files.selected', { n: this.selected.size }) + ' · ' + UI.fmtSize(selSize)) : '', this.filter ? h('span', null, 'filter: ' + this.filter) : '');
     }
     selection() { const s = this.visible.filter(x => this.selected.has(x.name)); return s.length ? s : (this.visible[this.cursor] ? [this.visible[this.cursor]] : []); }
     _key(e) {
@@ -176,6 +172,7 @@ window.Files = (() => {
           if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'a') { e.preventDefault(); this.visible.forEach(x => this.selected.add(x.name)); this.render(); }
           else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'l') { e.preventDefault(); this.pathInput.focus(); this.pathInput.select(); }
           else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'r') { e.preventDefault(); this.load(this.path); }
+          else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'h') { e.preventDefault(); this.btnHidden.click(); }
           else if (!e.ctrlKey && !e.metaKey && !e.altKey && e.key.length === 1) { this.filter += e.key; this.cursor = 0; this.render(); }
       }
     }
@@ -293,8 +290,8 @@ window.Files = (() => {
       const pct = v.bytesTotal ? Math.min(100, v.bytesDone / v.bytesTotal * 100) : (v.status === 'done' ? 100 : 0);
       const el = h('div', { class: 'xfer ' + v.status },
         h('div', { class: 'row' }, h('span', { class: 'path', title: v.srcPath + ' → ' + v.dstPath }, `${v.srcPath.split('/').pop()} → ${v.dstLabel || ''}`),
-          h('span', null, `${UI.fmtSize(v.bytesDone)}${v.bytesTotal ? ' / ' + UI.fmtSize(v.bytesTotal) : ''} · ${v.filesDone}/${v.filesTotal} · ${t('xfer.' + v.status)}${v.error ? ': ' + v.error : ''}`),
-          (v.status === 'running' || v.status === 'queued') ? h('button', { class: 'mini', onClick: () => window.api.xfer.cancel(v.id) }, '✕') : null),
+          h('span', { class: 'meta' }, `${UI.fmtSize(v.bytesDone)}${v.bytesTotal ? ' / ' + UI.fmtSize(v.bytesTotal) : ''}  ${v.filesDone}/${v.filesTotal}  ${t('xfer.' + v.status)}${v.error ? ': ' + v.error : ''}`),
+          (v.status === 'running' || v.status === 'queued') ? h('button', { class: 'icon-btn', title: t('cancel'), onClick: () => window.api.xfer.cancel(v.id) }, Icon('close', 12)) : null),
         h('div', { class: 'bar' }, h('div', { style: { width: pct + '%' } })));
       box.append(el);
     }
