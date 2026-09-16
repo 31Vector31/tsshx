@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:;">
+  <title>terhui</title>
+  <link rel="stylesheet" href="../../node_modules/@xterm/xterm/css/xterm.css">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body class="theme-dark">
+  <div id="app">
+    <header id="topbar">
+      <button id="btn-sidebar" class="icon-btn" data-icon="menu" title="Hosts (Ctrl+Shift+H)"></button>
+      <div id="tabs"></div>
+      <button id="btn-newtab" class="icon-btn" data-icon="plus" data-i18n-title="tab.new" title="New tab"></button>
+      <div class="spacer"></div>
+      <button id="btn-jump" class="icon-btn" data-icon="search" data-i18n-title="jump.title" title="Jump (Ctrl+P)"></button>
+      <button id="btn-files" class="icon-btn" data-icon="panel" data-i18n-title="files.toggle" title="Files (Ctrl+Shift+E)"></button>
+      <button id="btn-settings" class="icon-btn" data-icon="settings" data-i18n-title="settings.title" title="Settings (Ctrl+,)"></button>
+    </header>
+
+    <div id="main">
+      <aside id="sidebar">
+        <div class="sb-head">
+          <input id="host-filter" type="search" data-i18n-placeholder="hosts.filter" placeholder="Filter hosts" autocomplete="off">
+          <button id="btn-addhost" class="icon-btn" data-icon="plus" data-i18n-title="hosts.add" title="Add host"></button>
+        </div>
+        <div id="host-list" class="host-list"></div>
+        <div class="sb-foot">
+          <input id="quick-connect" type="text" data-i18n-placeholder="hosts.quick" placeholder="user@host:port" autocomplete="off" spellcheck="false">
+          <div class="sb-actions">
+            <button id="btn-import-sshconfig" class="mini" data-i18n="hosts.importSsh">Import ~/.ssh/config</button>
+            <button id="btn-lock" class="mini" data-i18n="vault.lock">Lock</button>
+          </div>
+        </div>
+      </aside>
+      <div id="sidebar-resizer" class="resizer"></div>
+
+      <section id="center">
+        <div id="wallpaper"></div>
+        <div id="terminals"></div>
+        <div id="welcome" class="welcome">
+          <table>
+            <tr><td>Enter</td><td data-i18n="welcome.connect">connect to the selected host</td></tr>
+            <tr><td>Ctrl+Shift+T</td><td data-i18n="welcome.quick">quick connect user@host</td></tr>
+            <tr><td>Ctrl+P</td><td data-i18n="welcome.jump">jump to an indexed directory</td></tr>
+            <tr><td>Ctrl+Shift+E</td><td data-i18n="welcome.files">file manager</td></tr>
+            <tr><td>Ctrl+Shift+F</td><td data-i18n="welcome.search">search in terminal</td></tr>
+            <tr><td>Ctrl+,</td><td data-i18n="welcome.settings">settings</td></tr>
+          </table>
+        </div>
+        <div id="search-bar" class="search-bar" hidden>
+          <input id="search-input" type="text" data-i18n-placeholder="term.search" placeholder="Find" spellcheck="false">
+          <button id="search-prev" class="icon-btn" data-icon="arrowUp" title="Previous (Shift+Enter)"></button>
+          <button id="search-next" class="icon-btn" data-icon="arrowDown" title="Next (Enter)"></button>
+          <button id="search-close" class="icon-btn" data-icon="close" title="Close (Esc)"></button>
+        </div>
+      </section>
+
+      <div id="files-resizer" class="resizer" hidden></div>
+      <aside id="files" hidden>
+        <div class="files-head">
+          <span data-i18n="files.title">Files</span>
+          <div class="spacer"></div>
+          <button id="btn-files-swap" class="icon-btn" data-icon="swap" title="Swap panes"></button>
+          <button id="btn-files-close" class="icon-btn" data-icon="close" title="Close (Ctrl+Shift+E)"></button>
+        </div>
+        <div id="panes">
+          <div class="pane" data-pane="0"></div>
+          <div class="pane" data-pane="1"></div>
+        </div>
+        <div id="transfers" class="transfers">
+          <div class="transfers-head"><span data-i18n="xfer.title">Transfers</span><div class="spacer"></div><button id="btn-xfer-clear" class="mini" data-i18n="xfer.clear">Clear</button></div>
+          <div id="transfer-list"></div>
+        </div>
+      </aside>
+    </div>
+
+    <footer id="statusbar">
+      <span id="st-session"></span>
+      <span id="st-size"></span>
+      <span id="st-index"></span>
+      <div class="spacer"></div>
+      <span id="st-xfer"></span>
+      <span id="st-msg"></span>
+    </footer>
+  </div>
+
+  <div id="modals"></div>
+  <div id="ctxmenu" class="ctxmenu" hidden></div>
+  <div id="toasts"></div>
+
+  <script src="../../node_modules/@xterm/xterm/lib/xterm.js"></script>
+  <script src="../../node_modules/@xterm/addon-fit/lib/addon-fit.js"></script>
+  <script src="../../node_modules/@xterm/addon-webgl/lib/addon-webgl.js"></script>
+  <script src="../../node_modules/@xterm/addon-unicode11/lib/addon-unicode11.js"></script>
+  <script src="../../node_modules/@xterm/addon-search/lib/addon-search.js"></script>
+  <script src="../../node_modules/@xterm/addon-web-links/lib/addon-web-links.js"></script>
+  <script src="i18n.js"></script>
+  <script src="icons.js"></script>
+  <script src="themes.js"></script>
+  <script src="ui.js"></script>
+  <script src="terminal.js"></script>
+  <script src="hosts.js"></script>
+  <script src="files.js"></script>
+  <script src="jump.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

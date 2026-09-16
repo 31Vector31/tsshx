@@ -1,0 +1,95 @@
+'use strict';
+window.I18N = (() => {
+  const dict = {
+    ru: {
+      'tab.new': 'Новая вкладка', 'jump.title': 'Быстрый переход по каталогам (Ctrl+P)', 'files.toggle': 'Файловый менеджер (Ctrl+Shift+E)', 'settings.title': 'Настройки',
+      'hosts.filter': 'Фильтр хостов…', 'hosts.add': 'Добавить хост', 'hosts.quick': 'user@host:port ⏎', 'hosts.importSsh': '~/.ssh/config', 'vault.lock': 'Заблокировать',
+      'welcome.text': 'Выберите хост слева или введите user@host для быстрого подключения. Ctrl+P — переход по индексу каталогов, Ctrl+Shift+E — файловый менеджер, Ctrl+Shift+F — поиск в терминале.',
+      'term.search': 'Поиск…', 'files.title': 'Файлы', 'xfer.title': 'Передачи', 'xfer.clear': 'Очистить',
+      'vault.create.title': 'Создать хранилище', 'vault.create.text': 'Задайте мастер-пароль. Им шифруются все логины, пароли и ключи (AES-256-GCM, scrypt).',
+      'vault.unlock.title': 'Разблокировать хранилище', 'vault.master': 'Мастер-пароль', 'vault.master2': 'Повторите', 'vault.mismatch': 'Пароли не совпадают', 'vault.bad': 'Неверный мастер-пароль',
+      'vault.unlock': 'Открыть', 'vault.create': 'Создать', 'vault.changeMaster': 'Сменить мастер-пароль', 'vault.old': 'Старый пароль', 'vault.new': 'Новый пароль',
+      'ok': 'OK', 'cancel': 'Отмена', 'save': 'Сохранить', 'delete': 'Удалить', 'close': 'Закрыть', 'connect': 'Подключить', 'yes': 'Да', 'no': 'Нет', 'apply': 'Применить',
+      'host.edit': 'Хост', 'host.name': 'Название', 'host.group': 'Группа', 'host.protocol': 'Протокол', 'host.host': 'Хост / IP', 'host.port': 'Порт', 'host.user': 'Логин', 'host.password': 'Пароль',
+      'host.auth': 'Аутентификация', 'host.key': 'Приватный ключ', 'host.keyfile': 'Файл…', 'host.keypaste': 'Вставьте PEM/OpenSSH ключ или выберите файл', 'host.keypath': 'Путь к ключу', 'host.passphrase': 'Пароль ключа',
+      'host.agent': 'Использовать ssh-agent', 'host.startDir': 'Стартовый каталог', 'host.indexRoot': 'Корень индекса', 'host.localDir': 'Локальный каталог', 'host.color': 'Цвет', 'host.notes': 'Заметки',
+      'host.ftpSecure': 'TLS (FTPS)', 'host.ftpSecure.none': 'нет', 'host.ftpSecure.explicit': 'explicit (AUTH TLS)', 'host.ftpSecure.implicit': 'implicit',
+      'host.secretKept': '(оставить как есть)', 'host.delete.confirm': 'Удалить хост «{name}»?', 'host.required': 'Укажите хост и логин',
+      'menu.connect': 'Подключить', 'menu.files': 'Открыть файлы', 'menu.edit': 'Изменить', 'menu.duplicate': 'Дублировать', 'menu.delete': 'Удалить', 'menu.index': 'Построить индекс', 'menu.copyAddr': 'Копировать адрес',
+      'hosts.empty': 'Хостов нет. Нажмите ＋ или импортируйте ~/.ssh/config.', 'hosts.imported': 'Импортировано: {n}', 'hosts.export': 'Экспорт (JSON)', 'hosts.import': 'Импорт (JSON)',
+      'ssh.connecting': 'Подключение к {h}…', 'ssh.connected': 'Подключено', 'ssh.closed': 'Соединение закрыто', 'ssh.error': 'Ошибка: {m}', 'ssh.reconnect': 'Нажмите Enter для переподключения или закройте вкладку',
+      'hostkey.title': 'Проверка ключа хоста', 'hostkey.new': 'Ключ хоста {h}:{p} неизвестен. Проверьте отпечаток и подтвердите.', 'hostkey.changed': 'ВНИМАНИЕ: ключ хоста {h}:{p} ИЗМЕНИЛСЯ! Возможна атака «человек посередине».',
+      'hostkey.accept': 'Принять и запомнить', 'hostkey.reject': 'Отклонить', 'hostkey.prev': 'Прежний', 'kbd.title': 'Интерактивная аутентификация', 'password.title': 'Пароль для {u}@{h}',
+      'files.local': 'Локально', 'files.remote': 'Удалённо', 'files.noremote': 'нет соединения', 'files.up': 'Вверх', 'files.home': 'Домой', 'files.refresh': 'Обновить', 'files.mkdir': 'Каталог', 'files.newfile': 'Файл',
+      'files.rename': 'Переименовать', 'files.delete': 'Удалить', 'files.copyTo': 'Копировать →', 'files.chmod': 'Права', 'files.view': 'Открыть', 'files.cdTerm': 'cd в терминале', 'files.follow': 'Следовать за терминалом',
+      'files.hidden': 'Скрытые', 'files.mkdir.prompt': 'Имя нового каталога', 'files.newfile.prompt': 'Имя нового файла', 'files.rename.prompt': 'Новое имя', 'files.delete.confirm': 'Удалить {n} элемент(ов)? Это необратимо.',
+      'files.chmod.prompt': 'Права (восьмеричные, напр. 755)', 'files.items': '{n} элем.', 'files.selected': 'выбрано {n}', 'files.copy.confirm': 'Копировать {n} элемент(ов) в {dst}?', 'files.binary': 'Бинарный файл — редактирование недоступно', 'files.truncated': 'Файл обрезан до {n} байт (только просмотр)',
+      'files.openLocal': 'Открыть в системе', 'files.showLocal': 'Показать в проводнике', 'files.copyPath': 'Копировать путь', 'files.download': 'Скачать…', 'files.upload': 'Загрузить…', 'files.uploadDir': 'Загрузить каталог…',
+      'xfer.done': 'готово', 'xfer.error': 'ошибка', 'xfer.cancelled': 'отменено', 'xfer.running': 'идёт', 'xfer.queued': 'в очереди',
+      'jump.placeholder': 'Введите часть пути… (Enter — cd, Ctrl+Enter — открыть в файлах)', 'jump.noindex': 'Индекс для этого хоста ещё не построен.', 'jump.build': 'Построить индекс', 'jump.rebuild': 'Перестроить', 'jump.cancel': 'Остановить',
+      'jump.building': 'Индексация… {n}', 'jump.info': '{n} записей · {d} · корень {r}', 'jump.files': 'включая файлы', 'jump.root': 'Корень', 'jump.nosession': 'Нет активной SSH-сессии.', 'jump.noresults': 'Ничего не найдено', 'jump.truncated': '(индекс обрезан по лимиту)',
+      'settings.font': 'Шрифт', 'settings.fontSize': 'Размер', 'settings.theme': 'Тема', 'settings.scrollback': 'История (строк)', 'settings.cursor': 'Курсор', 'settings.blink': 'Мигание курсора', 'settings.copyOnSelect': 'Копировать при выделении',
+      'settings.rightClickPaste': 'Вставка правой кнопкой', 'settings.locale': 'Язык', 'settings.renderer': 'Рендер', 'settings.confirmClose': 'Подтверждать выход при активных сессиях', 'settings.knownHosts': 'Известные хосты', 'settings.forget': 'забыть',
+      'settings.autoLock': 'Автоблокировка (мин, 0 — нет)', 'settings.ligatures': 'Лигатуры (нужен шрифт с лигатурами)',
+      'st.session': '{u}@{h}', 'st.index': 'индекс: {n}', 'st.noindex': 'индекс: нет', 'tab.close.confirm': 'Закрыть вкладку с активным соединением?',
+      'quick.bad': 'Формат: user@host[:port]', 'copied': 'Скопировано', 'saved': 'Сохранено', 'error': 'Ошибка',
+      'settings.general': 'Общие', 'settings.appearance': 'Внешний вид', 'settings.security': 'Безопасность', 'settings.wallpaper': 'Обои', 'settings.wallpaper.pick': 'Выбрать изображение…', 'settings.wallpaper.clear': 'Убрать',
+      'settings.wallpaper.fit': 'Масштаб', 'settings.dim': 'Затемнение', 'settings.blur': 'Размытие', 'settings.termOpacity': 'Непрозрачность терминала', 'settings.padding': 'Отступ', 'settings.lineHeight': 'Межстрочный',
+      'settings.chromeFromTheme': 'Красить интерфейс в цвета темы', 'settings.themes.import': 'Импорт темы (JSON)…', 'settings.themes.delete': 'удалить', 'settings.themes.hint': 'Поддерживаются схемы xterm.js и Windows Terminal (можно весь settings.json).',
+      'settings.reset': 'Сбросить вид', 'settings.securityHint': 'Хранилище: AES-256-GCM, ключ из мастер-пароля через scrypt. Экспорт JSON содержит пароли в открытом виде.',
+      'tab.duplicate': 'Дублировать вкладку', 'tab.reconnect': 'Переподключить',
+    },
+    en: {
+      'tab.new': 'New tab', 'jump.title': 'Jump to indexed directory (Ctrl+P)', 'files.toggle': 'File manager (Ctrl+Shift+E)', 'settings.title': 'Settings',
+      'hosts.filter': 'Filter hosts…', 'hosts.add': 'Add host', 'hosts.quick': 'user@host:port ⏎', 'hosts.importSsh': '~/.ssh/config', 'vault.lock': 'Lock',
+      'welcome.text': 'Pick a host on the left or type user@host to quick-connect. Ctrl+P — jump via directory index, Ctrl+Shift+E — file manager, Ctrl+Shift+F — search in terminal.',
+      'term.search': 'Search…', 'files.title': 'Files', 'xfer.title': 'Transfers', 'xfer.clear': 'Clear',
+      'vault.create.title': 'Create vault', 'vault.create.text': 'Choose a master password. All logins, passwords and keys are encrypted with it (AES-256-GCM, scrypt).',
+      'vault.unlock.title': 'Unlock vault', 'vault.master': 'Master password', 'vault.master2': 'Repeat', 'vault.mismatch': 'Passwords do not match', 'vault.bad': 'Wrong master password',
+      'vault.unlock': 'Unlock', 'vault.create': 'Create', 'vault.changeMaster': 'Change master password', 'vault.old': 'Old password', 'vault.new': 'New password',
+      'ok': 'OK', 'cancel': 'Cancel', 'save': 'Save', 'delete': 'Delete', 'close': 'Close', 'connect': 'Connect', 'yes': 'Yes', 'no': 'No', 'apply': 'Apply',
+      'host.edit': 'Host', 'host.name': 'Name', 'host.group': 'Group', 'host.protocol': 'Protocol', 'host.host': 'Host / IP', 'host.port': 'Port', 'host.user': 'Username', 'host.password': 'Password',
+      'host.auth': 'Authentication', 'host.key': 'Private key', 'host.keyfile': 'File…', 'host.keypaste': 'Paste PEM/OpenSSH key or pick a file', 'host.keypath': 'Key path', 'host.passphrase': 'Key passphrase',
+      'host.agent': 'Use ssh-agent', 'host.startDir': 'Start directory', 'host.indexRoot': 'Index root', 'host.localDir': 'Local directory', 'host.color': 'Color', 'host.notes': 'Notes',
+      'host.ftpSecure': 'TLS (FTPS)', 'host.ftpSecure.none': 'none', 'host.ftpSecure.explicit': 'explicit (AUTH TLS)', 'host.ftpSecure.implicit': 'implicit',
+      'host.secretKept': '(keep unchanged)', 'host.delete.confirm': 'Delete host “{name}”?', 'host.required': 'Host and username are required',
+      'menu.connect': 'Connect', 'menu.files': 'Open files', 'menu.edit': 'Edit', 'menu.duplicate': 'Duplicate', 'menu.delete': 'Delete', 'menu.index': 'Build index', 'menu.copyAddr': 'Copy address',
+      'hosts.empty': 'No hosts yet. Press ＋ or import ~/.ssh/config.', 'hosts.imported': 'Imported: {n}', 'hosts.export': 'Export (JSON)', 'hosts.import': 'Import (JSON)',
+      'ssh.connecting': 'Connecting to {h}…', 'ssh.connected': 'Connected', 'ssh.closed': 'Connection closed', 'ssh.error': 'Error: {m}', 'ssh.reconnect': 'Press Enter to reconnect or close the tab',
+      'hostkey.title': 'Host key verification', 'hostkey.new': 'Host key of {h}:{p} is unknown. Verify the fingerprint and confirm.', 'hostkey.changed': 'WARNING: host key of {h}:{p} HAS CHANGED! Possible man-in-the-middle attack.',
+      'hostkey.accept': 'Accept & remember', 'hostkey.reject': 'Reject', 'hostkey.prev': 'Previous', 'kbd.title': 'Interactive authentication', 'password.title': 'Password for {u}@{h}',
+      'files.local': 'Local', 'files.remote': 'Remote', 'files.noremote': 'not connected', 'files.up': 'Up', 'files.home': 'Home', 'files.refresh': 'Refresh', 'files.mkdir': 'Folder', 'files.newfile': 'File',
+      'files.rename': 'Rename', 'files.delete': 'Delete', 'files.copyTo': 'Copy →', 'files.chmod': 'Permissions', 'files.view': 'Open', 'files.cdTerm': 'cd in terminal', 'files.follow': 'Follow terminal',
+      'files.hidden': 'Hidden', 'files.mkdir.prompt': 'New folder name', 'files.newfile.prompt': 'New file name', 'files.rename.prompt': 'New name', 'files.delete.confirm': 'Delete {n} item(s)? This cannot be undone.',
+      'files.chmod.prompt': 'Permissions (octal, e.g. 755)', 'files.items': '{n} items', 'files.selected': '{n} selected', 'files.copy.confirm': 'Copy {n} item(s) to {dst}?', 'files.binary': 'Binary file — editing not available', 'files.truncated': 'File truncated to {n} bytes (view only)',
+      'files.openLocal': 'Open with system', 'files.showLocal': 'Show in file manager', 'files.copyPath': 'Copy path', 'files.download': 'Download…', 'files.upload': 'Upload…', 'files.uploadDir': 'Upload folder…',
+      'xfer.done': 'done', 'xfer.error': 'error', 'xfer.cancelled': 'cancelled', 'xfer.running': 'running', 'xfer.queued': 'queued',
+      'jump.placeholder': 'Type part of a path… (Enter — cd, Ctrl+Enter — open in files)', 'jump.noindex': 'No index built for this host yet.', 'jump.build': 'Build index', 'jump.rebuild': 'Rebuild', 'jump.cancel': 'Stop',
+      'jump.building': 'Indexing… {n}', 'jump.info': '{n} entries · {d} · root {r}', 'jump.files': 'include files', 'jump.root': 'Root', 'jump.nosession': 'No active SSH session.', 'jump.noresults': 'No matches', 'jump.truncated': '(index truncated at limit)',
+      'settings.font': 'Font', 'settings.fontSize': 'Size', 'settings.theme': 'Theme', 'settings.scrollback': 'Scrollback (lines)', 'settings.cursor': 'Cursor', 'settings.blink': 'Cursor blink', 'settings.copyOnSelect': 'Copy on select',
+      'settings.rightClickPaste': 'Right-click paste', 'settings.locale': 'Language', 'settings.renderer': 'Renderer', 'settings.confirmClose': 'Confirm exit with active sessions', 'settings.knownHosts': 'Known hosts', 'settings.forget': 'forget',
+      'settings.autoLock': 'Auto-lock (min, 0 — off)', 'settings.ligatures': 'Ligatures (needs a ligature font)',
+      'st.session': '{u}@{h}', 'st.index': 'index: {n}', 'st.noindex': 'index: none', 'tab.close.confirm': 'Close tab with an active connection?',
+      'quick.bad': 'Format: user@host[:port]', 'copied': 'Copied', 'saved': 'Saved', 'error': 'Error',
+      'settings.general': 'General', 'settings.appearance': 'Appearance', 'settings.security': 'Security', 'settings.wallpaper': 'Wallpaper', 'settings.wallpaper.pick': 'Choose image…', 'settings.wallpaper.clear': 'Remove',
+      'settings.wallpaper.fit': 'Fit', 'settings.dim': 'Dim', 'settings.blur': 'Blur', 'settings.termOpacity': 'Terminal opacity', 'settings.padding': 'Padding', 'settings.lineHeight': 'Line height',
+      'settings.chromeFromTheme': 'Tint the UI with the theme colours', 'settings.themes.import': 'Import theme (JSON)…', 'settings.themes.delete': 'delete', 'settings.themes.hint': 'xterm.js and Windows Terminal schemes are supported (a whole settings.json works too).',
+      'settings.reset': 'Reset look', 'settings.securityHint': 'Vault: AES-256-GCM, key derived from the master password with scrypt. JSON export contains passwords in clear text.',
+      'tab.duplicate': 'Duplicate tab', 'tab.reconnect': 'Reconnect',
+    },
+  };
+  let cur = 'en';
+  const t = (key, vars) => {
+    let s = (dict[cur] && dict[cur][key]) || dict.en[key] || key;
+    if (vars) for (const k of Object.keys(vars)) s = s.split('{' + k + '}').join(String(vars[k]));
+    return s;
+  };
+  const setLocale = (l) => { cur = dict[l] ? l : 'en'; document.documentElement.lang = cur; apply(); };
+  const apply = () => {
+    document.querySelectorAll('[data-i18n]').forEach(el => { el.textContent = t(el.dataset.i18n); });
+    document.querySelectorAll('[data-i18n-title]').forEach(el => { el.title = t(el.dataset.i18nTitle); });
+    document.querySelectorAll('[data-i18n-placeholder]').forEach(el => { el.placeholder = t(el.dataset.i18nPlaceholder); });
+  };
+  return { t, setLocale, apply, get locale() { return cur; }, locales: Object.keys(dict) };
+})();
+window.t = window.I18N.t;
