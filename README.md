@@ -46,7 +46,8 @@ npm run dist:linux # AppImage + deb   (dist:win → nsis + portable, dist:mac �
 - Reads `.bash_history`, `.zsh_history` (extended format, multi-line) and fish history of the host over the SSH session,
   merges them with commands run from the palette, ranks by recency and frequency. Search, `Enter` inserts the command on
   the prompt (replacing half-typed input), `Ctrl+Enter` runs it, `Ctrl+B` pins per host, `Ctrl+C` copies.
-- bash only writes history on exit by default; add `PROMPT_COMMAND='history -a'` on the host to see commands live.
+- Shell integration (on by default, Settings → General): right after login the app types one hidden bootstrap line into
+  bash/zsh so history is flushed after every command and the cwd is reported via OSC 7 (used by "follow terminal").
 
 ## Shortcuts
 

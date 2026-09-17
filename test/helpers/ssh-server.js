@@ -49,7 +49,7 @@ function startTestServer({ user = 'test', password = 'secret', pubKeys = [], por
         session.on('shell', (acc) => {
           const stream = acc();
           const pty = require('node-pty');
-          const p = pty.spawn('/bin/bash', ['--norc', '--noprofile'], { name: ptyInfo ? ptyInfo.term : 'xterm', cols: ptyInfo ? ptyInfo.cols : 80, rows: ptyInfo ? ptyInfo.rows : 24, cwd: os.homedir(), env: { ...process.env, ...env, TERM: ptyInfo ? ptyInfo.term : 'xterm', PS1: '$ ' } });
+          const p = pty.spawn('/bin/bash', ['--norc', '--noprofile'], { name: ptyInfo ? ptyInfo.term : 'xterm', cols: ptyInfo ? ptyInfo.cols : 80, rows: ptyInfo ? ptyInfo.rows : 24, cwd: os.homedir(), env: { ...process.env, ...env, TERM: ptyInfo ? ptyInfo.term : 'xterm', PS1: '$ ', HISTFILE: path.join(dir, 'bash_history') } });
           session._pty = p;
           p.onData(d => stream.write(d));
           p.onExit(({ exitCode }) => { stream.exit(exitCode); stream.end(); });

@@ -132,6 +132,7 @@ window.TerminalTab = (() => {
         this.sessionId = r.sessionId;
         this.entry = { ...this.entry, username: r.username };
         this._setStatus('connected');
+        this._startIntegration();
         this.term.focus();
         window.api.ssh.exec(this.sessionId, 'printf %s "$HOME"').then(x => { if (x && x.stdout) this.remoteHome = x.stdout.trim(); }).catch(() => {});
       } catch (err) {
@@ -142,7 +143,52 @@ window.TerminalTab = (() => {
       }
     }
 
-    onData(data) { this.term.write(data); }
+    // ---- shell integration ----
+    // One bootstrap line is typed into the remote shell right after the prompt appears. It makes bash/zsh
+    // append history after every command (live history palette) and print the cwd via OSC 7 after every
+    // prompt (file panel "follow terminal"). Its echo is cut out of the output stream so nothing shows.
+    _startIntegration() {
+      if (this.settings.shellIntegration === false || !this.sessionId) return;
+      const tag = 'terhui-si';
+      const dir = String(this.entry.startDir || '').trim();
+      const cd = dir ? ` cd '${dir.replace(/'/g, "'\\''")}';` : '';
+      const osc7 = 'printf "\\033]7;file://%s%s\\007" "$HOSTNAME" "$PWD"';
+      const line = ` [ -n "$BASH" ] && { PROMPT_COMMAND='history -a;${osc7}'"\${PROMPT_COMMAND:+;$PROMPT_COMMAND}"; case "$(HISTTIMEFORMAT= history 1)" in *${tag}*) history -d $HISTCMD;; esac; }; [ -n "$ZSH_VERSION" ] && { setopt INC_APPEND_HISTORY; precmd(){ ${osc7.replace('$HOSTNAME', '$HOST')}; }; };${cd} #${tag}`;
+      this.si = { phase: 'wait', line, tagBytes: new TextEncoder().encode(tag), buf: [], bufLen: 0, timer: setTimeout(() => this._siSend(), 2500) };
+    }
+    _siSend() {
+      const si = this.si; if (!si || si.phase !== 'wait') return;
+      clearTimeout(si.timer); si.phase = 'filter';
+      window.api.ssh.write(this.sessionId, si.line + '\r');
+      si.timer = setTimeout(() => this._siFlush(), 4000);
+    }
+    _siFlush() { const si = this.si; if (!si) return; clearTimeout(si.timer); this.si = null; for (const c of si.buf) this.term.write(c); }
+    static _concat(chunks, len) { const out = new Uint8Array(len); let o = 0; for (const c of chunks) { out.set(c, o); o += c.length; } return out; }
+    static _indexOf(hay, needle, from = 0) {
+      outer: for (let i = from; i <= hay.length - needle.length; i++) { for (let j = 0; j < needle.length; j++) if (hay[i + j] !== needle[j]) continue outer; return i; }
+      return -1;
+    }
+
+    onData(data) {
+      const si = this.si;
+      if (!si) return this.term.write(data);
+      if (si.phase === 'wait') {
+        this.term.write(data);
+        // The prompt is most likely on screen when output ends with a prompt-like symbol and a space.
+        const tail = new TextDecoder().decode(data.subarray(Math.max(0, data.length - 96))).replace(/\x1b\[[0-9;?]*[a-zA-Z]/g, '').replace(/\x1b\][^\x07]*\x07/g, '');
+        if (/[$#%>❯»→›]\s$/.test(tail)) this._siSend();
+        return;
+      }
+      si.buf.push(data); si.bufLen += data.length;
+      const all = TerminalTab._concat(si.buf, si.bufLen);
+      const idx = TerminalTab._indexOf(all, si.tagBytes);
+      const nl = idx < 0 ? -1 : all.indexOf(0x0a, idx);
+      if (nl < 0) { si.buf = [all]; if (si.bufLen > 65536) this._siFlush(); return; }
+      let start = all.lastIndexOf(0x0a, idx); start = start < 0 ? 0 : start + 1;   // beginning of the prompt line that echoed us
+      clearTimeout(si.timer); this.si = null;
+      if (start > 0) this.term.write(all.subarray(0, start));
+      if (nl + 1 < all.length) this.term.write(all.subarray(nl + 1));
+    }
 
     onClosed(reason) {
       this.sessionId = null;

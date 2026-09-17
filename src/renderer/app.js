@@ -228,6 +228,7 @@ window.App = (() => {
       L('settings.rightClickPaste'), chk('rightClickPaste'),
       L('settings.confirmClose'), chk('confirmClose'),
       L('host.localDir'), text('localDir'),
+      L('settings.shellIntegration'), chk('shellIntegration'),
       L('settings.windowFrame'), h('div', { class: 'row' }, sel('windowFrame', [['integrated', t('settings.windowFrame.integrated')], ['native', t('settings.windowFrame.native')]], () => { dirty.windowFrame = f.windowFrame.value; app.settings.windowFrame = f.windowFrame.value; }), h('button', { onClick: () => { window.api.settings.set({ ...dirty }); window.api.window.relaunch(); } }, t('settings.restart'))),
       ...(app.platform === 'win32' ? [L('settings.winMaterial'), sel('winMaterial', [['none', t('settings.winMaterial.none')], ['mica', 'Mica'], ['acrylic', 'Acrylic'], ['tabbed', 'Mica Alt (tabbed)']], () => { dirty.winMaterial = f.winMaterial.value; app.settings.winMaterial = f.winMaterial.value; })] : []),
       h('div', { class: 'hint' }, t('settings.windowFrame.hint')),

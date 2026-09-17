@@ -36,6 +36,7 @@ const DEFAULT_SETTINGS = {
   bgImage: '', bgDim: 0.55, bgBlur: 0, bgFit: 'cover', termOpacity: 0.85, termPadding: 10, chromeFromTheme: true,
   // window chrome: 'integrated' = OS frame + Window Controls Overlay (tabs live in the title bar), 'native' = plain OS title bar
   windowFrame: 'integrated', winMaterial: 'none', chromeBg: '#202329', chromeFg: '#d4d7dd',
+  shellIntegration: true,
 };
 const IMAGE_EXT = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'avif'];
 
@@ -220,7 +221,7 @@ function registerIpc() {
     s.on('banner', (msg) => send('ssh:banner', { sessionId: sid, msg }));
     s.on('error', (err) => send('ssh:error', { sessionId: sid, message: err.message }));
     await s.openShell(cols, rows);
-    if (full.startDir) s.write(`cd ${shq(full.startDir)}\n`);
+    if (full.startDir && settings.shellIntegration === false) s.write(`cd ${shq(full.startDir)}\n`);   // otherwise the renderer's shell bootstrap does it
     return { sessionId: sid, hostId: full.id, host: full.host, username: s.entry.username };
   });
   ipcMain.on('ssh:write', (_e, { sessionId, data }) => { const s = sessions.get(sessionId); if (s) s.write(data); });

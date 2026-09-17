@@ -41,6 +41,7 @@ window.I18N = (() => {
       'welcome.connect': 'подключиться к выбранному хосту', 'welcome.quick': 'быстрое подключение user@host', 'welcome.jump': 'переход по индексу каталогов', 'welcome.files': 'файловый менеджер', 'welcome.search': 'поиск в терминале', 'welcome.settings': 'настройки',
       'settings.windowFrame': 'Рамка окна', 'settings.windowFrame.integrated': 'Встроенная (вкладки в заголовке)', 'settings.windowFrame.native': 'Системный заголовок', 'settings.winMaterial': 'Фон (Windows 11)', 'settings.winMaterial.none': 'Нет', 'settings.restart': 'Перезапуск', 'settings.windowFrame.hint': 'Рамка и фон применяются после перезапуска.',
       'hist.title': 'История shell (Ctrl+Shift+R)', 'hist.placeholder': 'Поиск по истории', 'hist.empty': 'История на этом хосте не найдена', 'hist.loading': 'Загрузка истории…', 'hist.pinned': 'закреплено', 'hist.insert': 'вставить', 'hist.run': 'выполнить', 'hist.pin': 'закрепить', 'hist.copy': 'копировать', 'hist.entries': '{n} команд · {f}', 'welcome.history': 'история shell',
+      'settings.shellIntegration': 'Интеграция с shell (живая история, отслеживание каталога)',
       'files.name': 'Имя', 'files.size': 'Размер', 'files.modified': 'Изменён', 'files.mode': 'Права', 'tab.inactive': 'неактивно', 'settings.theme.pick': 'Цветовая схема',
     },
     en: {
@@ -83,6 +84,7 @@ window.I18N = (() => {
       'welcome.connect': 'connect to the selected host', 'welcome.quick': 'quick connect user@host', 'welcome.jump': 'jump to an indexed directory', 'welcome.files': 'file manager', 'welcome.search': 'search in terminal', 'welcome.settings': 'settings',
       'settings.windowFrame': 'Window frame', 'settings.windowFrame.integrated': 'Integrated (tabs in title bar)', 'settings.windowFrame.native': 'Native OS title bar', 'settings.winMaterial': 'Backdrop (Windows 11)', 'settings.winMaterial.none': 'None', 'settings.restart': 'Restart', 'settings.windowFrame.hint': 'Frame and backdrop changes apply after restart.',
       'hist.title': 'Shell history (Ctrl+Shift+R)', 'hist.placeholder': 'Search history', 'hist.empty': 'No history found on this host', 'hist.loading': 'Loading history…', 'hist.pinned': 'pinned', 'hist.insert': 'insert', 'hist.run': 'run', 'hist.pin': 'pin', 'hist.copy': 'copy', 'hist.entries': '{n} commands · {f}', 'welcome.history': 'shell history',
+      'settings.shellIntegration': 'Shell integration (live history, cwd tracking)',
       'files.name': 'Name', 'files.size': 'Size', 'files.modified': 'Modified', 'files.mode': 'Mode', 'tab.inactive': 'inactive', 'settings.theme.pick': 'Colour scheme',
     },
   };
