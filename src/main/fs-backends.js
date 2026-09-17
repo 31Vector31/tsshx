@@ -39,7 +39,7 @@ class LocalFS {
   dirname(p) { return path.dirname(p); }
   basename(p) { return path.basename(p); }
   async home() { return os.homedir(); }
-  async realpath(p) { return fsp.realpath(p); }
+  async realpath(p) { try { return await fsp.realpath.native(p); } catch (_) { try { return await fsp.realpath(p); } catch (e2) { if (/^\\\\/.test(p)) return path.normalize(p); throw e2; } } }   // UNC (\\wsl.localhost\…) may fail realpath on some Windows builds
   async list(dir) {
     const names = await fsp.readdir(dir, { withFileTypes: true });
     const out = [];

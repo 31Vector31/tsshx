@@ -29,7 +29,7 @@ process.on('uncaughtException', (err) => fatal('uncaughtException', err));
 process.on('unhandledRejection', (err) => fatal('unhandledRejection', err));
 
 const DEFAULT_SETTINGS = {
-  locale: 'en', fontFamily: '"JetBrains Mono", "Fira Code", "Cascadia Mono", "DejaVu Sans Mono", "Noto Sans Mono", "Noto Color Emoji", monospace',
+  locale: 'en', fontFamily: '"JetBrainsMono Nerd Font Mono", "CaskaydiaCove Nerd Font Mono", "CaskaydiaCove NF", "FiraCode Nerd Font Mono", "MesloLGS NF", "Hack Nerd Font Mono", "JetBrains Mono", "Cascadia Mono", "Fira Code", "DejaVu Sans Mono", "Noto Sans Mono", "Symbols Nerd Font Mono", "Noto Color Emoji", monospace',
   fontSize: 14, lineHeight: 1.15, theme: 'Midnight', scrollback: 10000, cursorStyle: 'bar', cursorBlink: true,
   renderer: 'webgl', copyOnSelect: false, rightClickPaste: true, bell: 'none', sidebarWidth: 240, filePanelWidth: 520, filePanelOpen: false,
   localDir: os.homedir(), confirmClose: true, autoLockMinutes: 0, unicodeVersion: '11', ligatures: false,

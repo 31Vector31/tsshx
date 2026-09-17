@@ -19,10 +19,10 @@ window.App = (() => {
   app.sessionsForHost = (hostId) => app.panes().filter(x => x.hostId === hostId && x.status === 'connected');
   app.activeGroup = () => app.tabs.find(g => g.id === app.activeId) || null;
   app.activeTab = () => { const g = app.activeGroup(); return g ? (g.activePane || g.panes[0] || null) : null; };
-  app.onPaneFocus = () => { updateStatus(); app.updateIndexStatus(); renderTabs(); };
+  app.onPaneFocus = (pane) => { updateStatus(); app.updateIndexStatus(); renderTabs(); Files.syncToTab(pane); };
 
   const paneCallbacks = {
-    onStatus: (tb, st) => { renderTabs(); updateStatus(); Files.onSessionsChanged(); Hosts.render(); if (st === 'connected' && !tb.local && Files.visible() && Files.panes[1].fsId === 'local' && Files.panes[1].path === '') Files.openFor({ sessionId: tb.sessionId }); },
+    onStatus: (tb, st) => { renderTabs(); updateStatus(); Files.onSessionsChanged(); Hosts.render(); if (st === 'connected' && tb === app.activeTab()) Files.syncToTab(tb, true); },
     onTitle: (tb, title) => { if (tb === app.activeTab()) window.api.window.setTitle(`${title} — terhui`); renderTabs(); },
     onCwd: (tb, p) => Files.onCwd(tb, p),
     onResize: (tb) => { if (tb === app.activeTab()) updateStatus(); },
@@ -54,6 +54,7 @@ window.App = (() => {
     $('#welcome').hidden = app.tabs.length > 0;
     renderTabs(); updateStatus(); app.updateIndexStatus();
     const g = app.activeGroup(); if (g) window.api.window.setTitle(`${g.title} — terhui`);
+    Files.syncToTab(app.activeTab());
   }
   app.activateTab = activateTab;
 
@@ -277,6 +278,7 @@ window.App = (() => {
       h('label', null, ''), themePreview,
       L('settings.chromeFromTheme'), chk('chromeFromTheme'),
       L('settings.font'), text('fontFamily'),
+      h('div', { class: 'hint' }, t('settings.fontHint')),
       L('settings.fontSize'), h('div', { class: 'row' }, num('fontSize', 6, 40), L('settings.lineHeight'), num('lineHeight', 0.8, 2, 0.05)),
       L('settings.cursor'), h('div', { class: 'row' }, sel('cursorStyle', [['block', 'block'], ['underline', 'underline'], ['bar', 'bar']]), L('settings.blink'), chk('cursorBlink')),
       L('settings.padding'), range('termPadding', 0, 60, 1, v => v + 'px'),

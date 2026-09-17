@@ -12,7 +12,11 @@ window.Files = (() => {
   const posixJoin = (a, b) => (a.endsWith('/') ? a : a + '/') + b;
   const joinFor = (fsId, a, b) => (fsId === 'local' && app.platform === 'win32') ? (a.endsWith('\\') ? a + b : a + '\\' + b) : posixJoin(a, b);
   const parentOf = (fsId, p) => {
-    if (fsId === 'local' && app.platform === 'win32') { const i = p.replace(/[\\/]+$/, '').lastIndexOf('\\'); return i <= 2 ? p.slice(0, 3) : p.slice(0, i); }
+    if (fsId === 'local' && app.platform === 'win32') {
+      const unc = p.match(/^(\\\\[^\\]+\\[^\\]+\\)(.*)$/);   // \\server\share\rest → never go above the share
+      if (unc) { const rest = unc[2].replace(/\\+$/, ''); const i = rest.lastIndexOf('\\'); return i < 0 ? unc[1] : unc[1] + rest.slice(0, i); }
+      const i = p.replace(/[\\/]+$/, '').lastIndexOf('\\'); return i <= 2 ? p.slice(0, 3) : p.slice(0, i);
+    }
     if (p === '/' ) return '/';
     const s = p.replace(/\/+$/, ''); const i = s.lastIndexOf('/'); return i <= 0 ? '/' : s.slice(0, i);
   };
@@ -317,7 +321,18 @@ window.Files = (() => {
     renderTransfers();
   }
   const visible = () => !$('#files').hidden;
-  function show() { $('#files').hidden = false; $('#files-resizer').hidden = false; refreshSources(); if (!panes[0].path) panes[0].setSource('local'); app.settings.filePanelOpen = true; window.api.settings.set({ filePanelOpen: true }); app.fitActive(); }
+  function show() { $('#files').hidden = false; $('#files-resizer').hidden = false; refreshSources(); if (!panes[0].path) panes[0].setSource('local'); app.settings.filePanelOpen = true; window.api.settings.set({ filePanelOpen: true }); app.fitActive(); syncToTab(app.activeTab(), true); }
+  /** Point the remote pane at the active tab's file system (SFTP for SSH, the distro for WSL, local cwd otherwise). */
+  let syncedTab = null;
+  function syncToTab(tab, force) {
+    if (!visible() || !tab || !tab.sessionId || tab.status !== 'connected') return;
+    if (!force && syncedTab === tab.id) return;
+    syncedTab = tab.id;
+    if (tab.local) { const target = tab.fsHome(); if (panes[1].fsId !== 'local' || (target && !samePrefix(panes[1].path, tab))) panes[1].setSource('local', target || undefined); }
+    else { const fsId = 'sftp:' + tab.sessionId; if (panes[1].fsId !== fsId) panes[1].setSource(fsId); }
+  }
+  // is the pane already inside the tab's file system (avoid resetting the user's navigation)?
+  function samePrefix(p, tab) { if (!p) return false; if (tab.profile && tab.profile.wsl) return WslPath.toLinux(tab.profile.wsl, p) !== null && /^\\\\/.test(p); return true; }
   function hide() { $('#files').hidden = true; $('#files-resizer').hidden = true; app.settings.filePanelOpen = false; window.api.settings.set({ filePanelOpen: false }); app.fitActive(); app.focusTerminal(); }
   function toggle() { visible() ? hide() : show(); }
   function refreshSources() { panes.forEach(p => p.refreshSources()); }
@@ -336,5 +351,5 @@ window.Files = (() => {
   function onCwd(tab, path) { for (const p of panes) if (p.follow && visible() && (tab.local ? p.fsId === 'local' : p.fsId === 'sftp:' + tab.sessionId)) p.load(tab.local ? tab.toFsPath(path) : path); }
   function onSessionsChanged() { refreshSources(); }
   function focus() { panes[activePane].list.focus(); }
-  return { init, show, hide, toggle, openFor, onCwd, onSessionsChanged, refreshSources, visible, focus, editFile, get panes() { return panes; } };
+  return { init, show, hide, toggle, openFor, onCwd, onSessionsChanged, refreshSources, visible, focus, editFile, syncToTab, get panes() { return panes; } };
 })();

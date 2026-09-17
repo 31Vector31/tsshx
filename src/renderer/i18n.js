@@ -46,6 +46,7 @@ window.I18N = (() => {
       'pane.splitRight': 'Разделить вправо', 'pane.splitDown': 'Разделить вниз', 'pane.close': 'Закрыть панель', 'welcome.split': 'разделить панель вправо / вниз (Alt+стрелки для перехода)',
       'local.title': 'Локальные', 'local.add': 'Добавить локальный shell', 'local.redetect': 'Найти shell', 'local.edit': 'Локальный shell', 'local.command': 'Команда', 'local.args': 'Аргументы', 'local.cwd': 'Стартовый каталог', 'local.kind': 'Тип shell', 'local.exited': 'Shell завершён', 'menu.open': 'Открыть',
       'files.wslUnreachable': 'Этот путь не виден из WSL-дистрибутива',
+      'settings.fontHint': 'Иконки в ls и промптах (глифы Nerd Font) требуют установленного Nerd-шрифта; любой "… Nerd Font" из списка подхватится сам.',
       'files.name': 'Имя', 'files.size': 'Размер', 'files.modified': 'Изменён', 'files.mode': 'Права', 'tab.inactive': 'неактивно', 'settings.theme.pick': 'Цветовая схема',
     },
     en: {
@@ -93,6 +94,7 @@ window.I18N = (() => {
       'pane.splitRight': 'Split right', 'pane.splitDown': 'Split down', 'pane.close': 'Close pane', 'welcome.split': 'split pane right / down (Alt+arrows move focus)',
       'local.title': 'Local', 'local.add': 'Add local shell', 'local.redetect': 'Detect shells', 'local.edit': 'Local shell', 'local.command': 'Command', 'local.args': 'Arguments', 'local.cwd': 'Start directory', 'local.kind': 'Shell type', 'local.exited': 'Shell exited', 'menu.open': 'Open',
       'files.wslUnreachable': 'This path is not visible from the WSL distro',
+      'settings.fontHint': 'Icons in ls/prompts (Nerd Font glyphs) need a Nerd Font installed; any "… Nerd Font" family in this list is used automatically.',
       'files.name': 'Name', 'files.size': 'Size', 'files.modified': 'Modified', 'files.mode': 'Mode', 'tab.inactive': 'inactive', 'settings.theme.pick': 'Colour scheme',
     },
   };
