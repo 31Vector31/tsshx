@@ -24,7 +24,7 @@ window.App = (() => {
   const paneCallbacks = {
     onStatus: (tb, st) => { renderTabs(); updateStatus(); Files.onSessionsChanged(); Hosts.render(); if (st === 'connected' && tb === app.activeTab()) Files.syncToTab(tb, true); },
     onTitle: (tb, title) => { if (tb === app.activeTab()) window.api.window.setTitle(`${title} — terhui`); renderTabs(); },
-    onCwd: (tb, p) => Files.onCwd(tb, p),
+    onCwd: (tb, p) => { Files.onCwd(tb, p); if (tb === app.activeTab()) updateStatus(); },
     onResize: (tb) => { if (tb === app.activeTab()) updateStatus(); },
     onZoom: (d) => app.zoom(d),
     onFocus: (tb) => { if (tb.group && tb.group.activePane !== tb) tb.group.focus(tb); },
@@ -134,6 +134,7 @@ window.App = (() => {
   }
   function updateStatus() {
     const tb = app.activeTab();
+    $('#st-cwd').textContent = tb ? (tb.cwd || '') : '';
     $('#st-session').textContent = tb ? `${tb.status === 'connected' ? '●' : '○'} ${tb.local ? tb.profile.name : `${tb.entry.username || ''}@${tb.entry.host}:${tb.entry.port || 22}`}` : '';
     $('#st-size').textContent = tb ? `${tb.term.cols}×${tb.term.rows}` : '';
   }

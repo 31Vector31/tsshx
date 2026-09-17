@@ -74,9 +74,18 @@ class LocalShellManager extends EventEmitter {
     const p = loadPty();
     const id = 'L' + (seq++);
     const env = { ...process.env, ...(profile.env || {}), TERM: 'xterm-256color', COLORTERM: 'truecolor', TERM_PROGRAM: 'terhui', LANG: process.env.LANG || 'C.UTF-8' };
-    if (profile.integration !== false) Object.assign(env, this.integrationEnv(profile, env));
+    let args = profile.args || [];
+    if (profile.integration !== false) {
+      Object.assign(env, this.integrationEnv(profile, env));
+      // cwd reporting (OSC 7) for Windows shells: cmd through its PROMPT variable, PowerShell by wrapping the prompt function
+      if (profile.kind === 'cmd') env.PROMPT = '$e]7;file://localhost/$p$e\\' + (env.PROMPT || '$p$g');
+      if (profile.kind === 'pwsh' && !args.some(a => /^-(c|command|f|file|noexit)$/i.test(a))) {
+        const script = `$global:__terhuiPrompt = $function:prompt; function global:prompt { [Console]::Write("$([char]27)]7;file://localhost/$($PWD.ProviderPath -replace '\\\\','/')$([char]7)"); & $global:__terhuiPrompt }`;
+        args = [...args, '-NoExit', '-Command', script];
+      }
+    }
     const cwd = (profile.cwd && exists(profile.cwd)) ? profile.cwd : os.homedir();
-    const proc = p.spawn(profile.command, profile.args || [], { name: 'xterm-256color', cols: cols || 80, rows: rows || 24, cwd, env, useConpty: true });
+    const proc = p.spawn(profile.command, args, { name: 'xterm-256color', cols: cols || 80, rows: rows || 24, cwd, env, useConpty: true });
     const s = { id, proc, profile, closed: false };
     this.sessions.set(id, s);
     proc.onData((d) => this.emit('data', id, Buffer.from(d, 'utf8')));

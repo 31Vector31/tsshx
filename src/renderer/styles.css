@@ -168,6 +168,7 @@ body.pane-dragging .pane-box { pointer-events: auto; }
 /* status bar */
 #statusbar { display: flex; align-items: center; gap: 16px; height: 22px; padding: 0 8px; background: var(--bg2); border-top: 1px solid var(--border); font-size: 11px; color: var(--fg2); flex-shrink: 0; font-variant-numeric: tabular-nums; }
 #statusbar span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#st-cwd { font-family: var(--mono); max-width: 40vw; }
 
 /* modals */
 #modals { position: fixed; inset: 0; pointer-events: none; z-index: 50; }

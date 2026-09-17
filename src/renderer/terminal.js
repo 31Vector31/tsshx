@@ -55,7 +55,15 @@ window.TerminalTab = (() => {
       term.open(this.wrap);
       this._loadRenderer();
       // OSC 7 (cwd) and title tracking → file panel "follow terminal"
-      term.parser.registerOscHandler(7, (data) => { try { const u = new URL(data); if (u.protocol === 'file:') this._setCwd(decodeURIComponent(u.pathname)); } catch (_) {} return true; });
+      term.parser.registerOscHandler(7, (data) => {
+        try {
+          const u = new URL(data); if (u.protocol !== 'file:') return true;
+          let p = decodeURIComponent(u.pathname);
+          if (/^\/[A-Za-z]:\//.test(p)) p = p.slice(1).replace(/\//g, '\\');   // Windows shells report /C:/Users/x
+          this._setCwd(p);
+        } catch (_) {}
+        return true;
+      });
       term.onTitleChange((title) => {
         // Common default prompts set the title to "user@host: /path" or "user@host:~/path"
         const m = title.match(/^[^\s:@]+@[^\s:]+:\s*(.+)$/);
