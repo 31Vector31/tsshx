@@ -81,15 +81,16 @@ window.App = (() => {
     const box = $('#tabs'); box.innerHTML = '';
     if (!box._dnd) {   // drop a pane on the tab bar → its own tab; drag tabs to reorder
       box._dnd = true;
-      box.addEventListener('dragover', (e) => { const ts = [...e.dataTransfer.types]; if (ts.includes(TabGroup.DND) || ts.includes('application/x-terhui-tab')) { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; box.classList.add('drop'); } });
+      box.addEventListener('dragenter', (e) => { if (TabGroup.dragState) e.preventDefault(); });
+      box.addEventListener('dragover', (e) => { if (TabGroup.dragState) { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; box.classList.add('drop'); } });
       box.addEventListener('dragleave', (e) => { if (!box.contains(e.relatedTarget)) box.classList.remove('drop'); });
       box.addEventListener('drop', (e) => {
         box.classList.remove('drop');
-        const pid = e.dataTransfer.getData(TabGroup.DND);
-        if (pid) { e.preventDefault(); const p = TabGroup.paneById(pid); if (p) app.detachPane(p); return; }
-        const gid = e.dataTransfer.getData('application/x-terhui-tab');
-        if (gid) {
-          e.preventDefault();
+        const ds = TabGroup.dragState; if (!ds) return;
+        e.preventDefault(); TabGroup.endDrag();
+        if (ds.kind === 'pane') { const p = TabGroup.paneById(ds.id); if (p) app.detachPane(p); return; }
+        const gid = ds.id;
+        {
           const from = app.tabs.findIndex(g => g.id === gid); if (from < 0) return;
           const over = e.target.closest('.tab'); let to = app.tabs.length - 1;
           if (over) { const r = over.getBoundingClientRect(); to = app.tabs.findIndex(g => g.id === over.dataset.id) + (e.clientX > r.left + r.width / 2 ? 1 : 0); }
@@ -106,8 +107,8 @@ window.App = (() => {
         h('span', { class: 'title' }, g.title + (p.status === 'connecting' ? '…' : '')),
         h('span', { class: 'close', onClick: (e) => { e.stopPropagation(); closeTab(g.id); } }, Icon('close', 12)));
       el.draggable = true;
-      el.addEventListener('dragstart', (e) => { e.dataTransfer.setData('application/x-terhui-tab', g.id); e.dataTransfer.effectAllowed = 'move'; document.body.classList.add('pane-dragging'); });
-      el.addEventListener('dragend', () => document.body.classList.remove('pane-dragging'));
+      el.addEventListener('dragstart', (e) => { e.dataTransfer.setData('text/plain', g.id); e.dataTransfer.effectAllowed = 'move'; TabGroup.startDrag('tab', g.id); });
+      el.addEventListener('dragend', TabGroup.endDrag);
       el.addEventListener('contextmenu', (e) => { e.preventDefault(); activateTab(g.id); UI.ctxmenu(e.clientX, e.clientY, [
         { label: t('pane.splitRight'), kbd: 'Ctrl+Shift+5', onClick: () => app.split('h') },
         { label: t('pane.splitDown'), kbd: 'Ctrl+Shift+6', onClick: () => app.split('v') },

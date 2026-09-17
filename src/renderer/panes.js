@@ -8,6 +8,10 @@ window.TabGroup = (() => {
   let seq = 1;
   const DND = 'application/x-terhui-pane';
   const paneById = new Map();
+  // Drag state is tracked here instead of dataTransfer: on Windows custom MIME types are not visible during
+  // dragover and getData() is empty in drop, which made every target reject the drag (🚫 cursor).
+  let dragState = null; // { kind: 'pane'|'tab', id }
+  const endDrag = () => { dragState = null; document.body.classList.remove('pane-dragging'); document.querySelectorAll('.drop-hint').forEach(x => { x.hidden = true; }); };
 
   class TabGroup {
     constructor(app) {
@@ -133,27 +137,25 @@ window.TabGroup = (() => {
         btn('splitH', t('pane.splitRight'), () => app.split('h', pane)), btn('splitV', t('pane.splitDown'), () => app.split('v', pane)),
         btn('maximize', t('pane.maximize'), () => this.toggleMaximize()), btn('close', t('pane.close'), () => app.closePane(pane)));
       head.addEventListener('mousedown', () => this.focus(pane));
-      head.addEventListener('dragstart', (e) => { e.dataTransfer.setData(DND, pane.id); e.dataTransfer.effectAllowed = 'move'; document.body.classList.add('pane-dragging'); });
-      head.addEventListener('dragend', () => document.body.classList.remove('pane-dragging'));
+      head.addEventListener('dragstart', (e) => { e.dataTransfer.setData(DND, pane.id); e.dataTransfer.setData('text/plain', pane.id); e.dataTransfer.effectAllowed = 'move'; dragState = { kind: 'pane', id: pane.id }; document.body.classList.add('pane-dragging'); });
+      head.addEventListener('dragend', endDrag);
       const hint = h('div', { class: 'drop-hint', hidden: true });
       const box = h('div', { class: 'pane-box' }, head, pane.wrap, hint);
       pane.wrap.style.flex = '';
       const zoneOf = (e) => { const r = box.getBoundingClientRect(); const x = (e.clientX - r.left) / r.width, y = (e.clientY - r.top) / r.height; const dx = Math.min(x, 1 - x), dy = Math.min(y, 1 - y); return dx < dy ? (x < 0.5 ? 'left' : 'right') : (y < 0.5 ? 'top' : 'bottom'); };
-      const TAB = 'application/x-terhui-tab';
+      box.addEventListener('dragenter', (e) => { if (dragState) e.preventDefault(); });
       box.addEventListener('dragover', (e) => {
-        const types = [...e.dataTransfer.types]; if (!types.includes(DND) && !types.includes(TAB)) return;
+        if (!dragState) return;
         e.preventDefault(); e.dataTransfer.dropEffect = 'move';
         const z = zoneOf(e); hint.hidden = false; hint.className = 'drop-hint ' + z;
       });
       box.addEventListener('dragleave', (e) => { if (!box.contains(e.relatedTarget)) hint.hidden = true; });
       box.addEventListener('drop', (e) => {
         hint.hidden = true;
-        const id = e.dataTransfer.getData(DND);
-        const gid = e.dataTransfer.getData(TAB);
-        if (!id && !gid) return;
-        e.preventDefault();
-        if (id) { const moving = paneById.get(id); if (moving) TabGroup.move(moving, pane, zoneOf(e)); }
-        else { const g = app.tabs.find(x => x.id === gid); if (g) TabGroup.dock(g, pane, zoneOf(e)); }
+        const ds = dragState; if (!ds) return;
+        e.preventDefault(); endDrag();
+        if (ds.kind === 'pane') { const moving = paneById.get(ds.id); if (moving) TabGroup.move(moving, pane, zoneOf(e)); }
+        else { const g = app.tabs.find(x => x.id === ds.id); if (g) TabGroup.dock(g, pane, zoneOf(e)); }
         app.renderTabs && app.renderTabs();
       });
       return box;
@@ -183,5 +185,8 @@ window.TabGroup = (() => {
   }
   TabGroup.DND = DND;
   TabGroup.paneById = (id) => paneById.get(id);
+  TabGroup.startDrag = (kind, id) => { dragState = { kind, id }; document.body.classList.add('pane-dragging'); };
+  TabGroup.endDrag = endDrag;
+  Object.defineProperty(TabGroup, 'dragState', { get: () => dragState });
   return TabGroup;
 })();
