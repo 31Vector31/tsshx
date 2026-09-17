@@ -139,7 +139,7 @@ window.TerminalTab = (() => {
           const r = await window.api.pty.spawn({ profile: this.profile, cols: this.term.cols, rows: this.term.rows });
           this.sessionId = r.sessionId; this.remoteHome = r.home;
           this._setStatus('connected');
-          if (this.profile.kind === 'posix') this._startIntegration();
+          // local shells get their integration through the environment (see local-shell.js), nothing is typed
           this.term.focus();
           return;
         }

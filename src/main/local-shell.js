@@ -27,7 +27,7 @@ function detectProfiles() {
     const cmd = path.join(process.env.SystemRoot || 'C:\\Windows', 'System32', 'cmd.exe'); if (exists(cmd)) add({ name: 'Command Prompt', command: cmd, args: [], kind: 'cmd' });
     try {
       const raw = execFileSync('wsl.exe', ['-l', '-q'], { encoding: 'utf16le', windowsHide: true, timeout: 5000 });
-      for (const line of raw.split(/\r?\n/)) { const d = line.replace(/\0/g, '').trim(); if (d) add({ name: 'WSL: ' + d, command: 'wsl.exe', args: ['-d', d], kind: 'posix', wsl: d }); }
+      for (const line of raw.split(/\r?\n/)) { const d = line.replace(/\0/g, '').trim(); if (d) add({ name: 'WSL: ' + d, command: 'wsl.exe', args: ['-d', d, '--cd', '~'], kind: 'posix', wsl: d }); }
     } catch (_) {}
     for (const gb of [path.join(process.env.ProgramFiles || 'C:\\Program Files', 'Git', 'bin', 'bash.exe'), path.join(process.env.LOCALAPPDATA || '', 'Programs', 'Git', 'bin', 'bash.exe')]) if (exists(gb)) { add({ name: 'Git Bash', command: gb, args: ['--login', '-i'], kind: 'posix' }); break; }
   } else {
@@ -41,14 +41,40 @@ function detectProfiles() {
   return out;
 }
 
+const OSC7 = 'printf "\\033]7;file://%s%s\\007" "$HOSTNAME" "$PWD"';
+
+/** zsh cannot take hooks from the environment; a private ZDOTDIR sources the user's files and then adds ours. */
+function ensureZdotdir(dir) {
+  fs.mkdirSync(dir, { recursive: true });
+  const restore = 'export ZDOTDIR="${TERHUI_USER_ZDOTDIR:-$HOME}"';
+  fs.writeFileSync(path.join(dir, '.zshenv'), `_terhui_zd="$ZDOTDIR"; ${restore}; [ -f "$ZDOTDIR/.zshenv" ] && . "$ZDOTDIR/.zshenv"; export ZDOTDIR="$_terhui_zd"\n`);
+  fs.writeFileSync(path.join(dir, '.zprofile'), `_terhui_zd="$ZDOTDIR"; ${restore}; [ -f "$ZDOTDIR/.zprofile" ] && . "$ZDOTDIR/.zprofile"; export ZDOTDIR="$_terhui_zd"\n`);
+  fs.writeFileSync(path.join(dir, '.zshrc'), `${restore}; [ -f "$ZDOTDIR/.zshrc" ] && . "$ZDOTDIR/.zshrc"\nsetopt INC_APPEND_HISTORY\n_terhui_precmd() { printf "\\033]7;file://%s%s\\007" "$HOST" "$PWD"; }\nprecmd_functions+=(_terhui_precmd)\n`);
+  return dir;
+}
+
 let seq = 1;
 class LocalShellManager extends EventEmitter {
-  constructor() { super(); this.sessions = new Map(); }
+  constructor(userData) { super(); this.sessions = new Map(); this.userData = userData; }
+
+  /** Shell integration for local shells goes through the environment: nothing is typed, so ConPTY cannot echo it. */
+  integrationEnv(profile, env) {
+    if (profile.kind !== 'posix') return {};
+    const out = {};
+    const base = path.basename(profile.command).toLowerCase();
+    if (profile.wsl || base === 'bash' || base === 'sh' || base.endsWith('bash.exe')) {
+      out.PROMPT_COMMAND = 'history -a;' + OSC7;
+      if (profile.wsl) out.WSLENV = (env.WSLENV ? env.WSLENV + ':' : '') + 'PROMPT_COMMAND';   // share it with the distro
+    }
+    if (base === 'zsh') { out.TERHUI_USER_ZDOTDIR = env.ZDOTDIR || ''; out.ZDOTDIR = ensureZdotdir(path.join(this.userData, 'zsh')); }
+    return out;
+  }
 
   spawn(profile, cols, rows) {
     const p = loadPty();
     const id = 'L' + (seq++);
     const env = { ...process.env, ...(profile.env || {}), TERM: 'xterm-256color', COLORTERM: 'truecolor', TERM_PROGRAM: 'terhui', LANG: process.env.LANG || 'C.UTF-8' };
+    if (profile.integration !== false) Object.assign(env, this.integrationEnv(profile, env));
     const cwd = (profile.cwd && exists(profile.cwd)) ? profile.cwd : os.homedir();
     const proc = p.spawn(profile.command, profile.args || [], { name: 'xterm-256color', cols: cols || 80, rows: rows || 24, cwd, env, useConpty: true });
     const s = { id, proc, profile, closed: false };

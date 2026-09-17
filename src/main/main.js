@@ -128,7 +128,12 @@ function createWindow() {
   win.webContents.on('did-fail-load', (_e, code, desc, url) => fatal('Page failed to load', new Error(`${code} ${desc} ${url}`)));
   win.webContents.on('preload-error', (_e, p, err) => fatal('Preload error in ' + p, err));
   win.webContents.on('render-process-gone', (_e, d) => fatal('Renderer process gone', new Error(JSON.stringify(d))));
-  win.webContents.on('console-message', (_e, level, message, line, source) => { if (level >= 2 || process.env.TERHUI_DEBUG) logLine('renderer', level >= 3 ? 'ERROR' : 'warn', message, `${source}:${line}`); });
+  win.webContents.on('console-message', (ev, ...legacy) => {   // Electron ≥ 32 passes an event object; older versions positional args
+    const level = ev && ev.level !== undefined ? ev.level : legacy[0]; const message = ev && ev.message !== undefined ? ev.message : legacy[1];
+    const line = ev && ev.lineNumber !== undefined ? ev.lineNumber : legacy[2]; const source = ev && ev.sourceId !== undefined ? ev.sourceId : legacy[3];
+    const bad = typeof level === 'number' ? level >= 2 : (level === 'warning' || level === 'error');
+    if (bad || process.env.TERHUI_DEBUG) logLine('renderer', level === 'error' || level === 3 ? 'ERROR' : 'warn', message, `${source}:${line}`);
+  });
   logLine('window created', { platform: process.platform, electron: process.versions.electron, frame: frameOpts, safe: SAFE_MODE, userData: app.getPath('userData') });
   win.on('closed', () => { win = null; });
   win.webContents.setWindowOpenHandler(({ url }) => { if (/^https?:/.test(url)) shell.openExternal(url); return { action: 'deny' }; });
@@ -261,7 +266,13 @@ function registerIpc() {
 
   // indexer
   // local terminals
-  handle('profiles:list', () => { if (!Array.isArray(settings.localProfiles)) { settings.localProfiles = detectProfiles(); saveSettings(); } return settings.localProfiles; });
+  handle('profiles:list', () => {
+    if (!Array.isArray(settings.localProfiles)) { settings.localProfiles = detectProfiles(); saveSettings(); }
+    let changed = false;   // migrate WSL profiles saved before `--cd ~` / `wsl` existed
+    for (const p of settings.localProfiles) { if (/wsl\.exe$/i.test(p.command)) { const i = (p.args || []).indexOf('-d'); if (!p.wsl && i >= 0) { p.wsl = p.args[i + 1]; changed = true; } if (!(p.args || []).includes('--cd')) { p.args = [...(p.args || []), '--cd', '~']; changed = true; } } }
+    if (changed) saveSettings();
+    return settings.localProfiles;
+  });
   handle('profiles:detect', () => detectProfiles());
   handle('profiles:save', (list) => { settings.localProfiles = Array.isArray(list) ? list : []; saveSettings(); return settings.localProfiles; });
   handle('pty:spawn', ({ profile, cols, rows }) => {
@@ -377,7 +388,7 @@ else {
     indexer = new Indexer(path.join(ud, 'index'));
     indexer.on('progress', (p) => send('index:progress', p));
     history = new HistoryStore(ud);
-    shells = new LocalShellManager();
+    shells = new LocalShellManager(ud);
     shells.on('data', (id, d) => send('pty:data', { sessionId: id, data: d }));
     shells.on('exit', (id, info) => send('pty:exit', { sessionId: id, ...info }));
     registerIpc();

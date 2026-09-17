@@ -22,7 +22,7 @@ window.App = (() => {
   app.onPaneFocus = () => { updateStatus(); app.updateIndexStatus(); renderTabs(); };
 
   const paneCallbacks = {
-    onStatus: (tb, st) => { renderTabs(); updateStatus(); Files.onSessionsChanged(); Hosts.render(); if (st === 'connected' && Files.visible() && Files.panes[1].fsId === 'local' && Files.panes[1].path === '') Files.openFor({ sessionId: tb.sessionId }); },
+    onStatus: (tb, st) => { renderTabs(); updateStatus(); Files.onSessionsChanged(); Hosts.render(); if (st === 'connected' && !tb.local && Files.visible() && Files.panes[1].fsId === 'local' && Files.panes[1].path === '') Files.openFor({ sessionId: tb.sessionId }); },
     onTitle: (tb, title) => { if (tb === app.activeTab()) window.api.window.setTitle(`${title} — terhui`); renderTabs(); },
     onCwd: (tb, p) => Files.onCwd(tb, p),
     onResize: (tb) => { if (tb === app.activeTab()) updateStatus(); },
