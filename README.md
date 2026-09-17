@@ -39,7 +39,7 @@ npm run dist:linux # AppImage + deb   (dist:win → nsis + portable, dist:mac �
 - `vault.json` in the user-data dir, AES-256-GCM, key from master password via scrypt (N=2^15).
 - Per host: name, group, colour, host/port, user, password **or** private key (pasted or file) + passphrase **or** ssh-agent,
   start dir, index root, notes. FTP hosts (plain / explicit TLS / implicit TLS) live in the same list.
-- Import `~/.ssh/config`, export/import JSON, change master password, auto-lock timer, quick connect `user@host:port`.
+- Import `~/.ssh/config` (Settings → Security), export/import JSON, change master password, auto-lock timer, quick connect `user@host:port`.
 - Host keys: trust-on-first-use with SHA256 fingerprint prompt, loud warning when a key changes; keyboard-interactive auth supported.
 
 **File manager (Ctrl+Shift+E / F11)**

@@ -248,6 +248,7 @@ body.pane-dragging .pane-box { pointer-events: auto; }
 .host.nogroup { padding-left: 8px; }
 .vault-screen input { margin-bottom: 6px; }
 .sb-actions button { flex: 0 0 auto; white-space: nowrap; }
+.sb-actions { justify-content: flex-end; }
 input[type=checkbox], input[type=range] { accent-color: var(--accent); }
 input[type=checkbox] { min-height: 0; margin: 0; }
 

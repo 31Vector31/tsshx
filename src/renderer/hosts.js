@@ -13,9 +13,7 @@ window.Hosts = (() => {
     app = a;
     $('#host-filter').addEventListener('input', render);
     $('#btn-addhost').addEventListener('click', () => edit(null));
-    $('#btn-import-sshconfig').addEventListener('click', async () => {
-      try { const r = await window.api.hosts.importSshConfig(); UI.toast(t('hosts.imported', { n: r.added }), 'ok'); await refresh(); } catch (e) { UI.errToast(e); }
-    });
+    Hosts.importSshConfig = async () => { try { const r = await window.api.hosts.importSshConfig(); UI.toast(t('hosts.imported', { n: r.added }), 'ok'); await refresh(); } catch (e) { UI.errToast(e); } };
     $('#quick-connect').addEventListener('keydown', (e) => {
       if (e.key !== 'Enter') return;
       const v = e.target.value.trim(); if (!v) return;
