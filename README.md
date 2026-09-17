@@ -17,6 +17,8 @@ npm run dist:linux # AppImage + deb   (dist:win â†’ nsis + portable, dist:mac â†
 - xterm.js with WebGL renderer (DOM fallback), 24-bit colour, Unicode 11 wide chars / emoji, 10k+ scrollback.
 - Tabs, search (Ctrl+Shift+F), clickable URLs, copy/paste (Ctrl+Shift+C / Ctrl+Shift+V, middle/right click).
 - Reconnect on `Enter` after a dropped session, `Ctrl+Scroll` / `Ctrl +`/`-` zoom.
+- Split panes inside a tab: `Ctrl+Shift+D` (auto), `Alt+Shift+=` right, `Alt+Shift+-` down, `Alt+arrows` move focus,
+  `Ctrl+Shift+Enter` maximise/restore, `Ctrl+Shift+W` closes the pane; dividers drag; each pane is its own SSH session.
 - Appearance: 12 built-in colour schemes, import of xterm / Windows Terminal JSON schemes,
   wallpaper (any image) with dim/blur/fit, terminal opacity, padding, font, cursor; the UI is tinted from the scheme.
 - Window: OS frame with Window Controls Overlay (tabs live in the title bar, native caption buttons, Win11 snap layouts and
@@ -59,7 +61,9 @@ npm run dist:linux # AppImage + deb   (dist:win â†’ nsis + portable, dist:mac â†
 | Ctrl+Shift+F | Search in terminal |
 | Ctrl+Shift+T | Focus quick connect |
 | Ctrl+Shift+N | Duplicate current session |
-| Ctrl+Shift+W | Close tab |
+| Ctrl+Shift+D, Alt+Shift+= / - | Split pane (auto / right / down) |
+| Alt+arrows, Ctrl+Shift+Enter | Move between panes, maximise pane |
+| Ctrl+Shift+W | Close pane / tab |
 | Ctrl+Tab / Ctrl+Shift+Tab, Alt+1..9 | Switch tabs |
 | Ctrl+Shift+H | Toggle host sidebar |
 | Ctrl+Shift+L | Lock vault |

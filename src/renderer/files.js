@@ -73,7 +73,7 @@ window.Files = (() => {
 
     sources() {
       const list = [{ id: 'local', label: t('files.local') }];
-      for (const tab of app.tabs) if (tab.sessionId && tab.status === 'connected') list.push({ id: 'sftp:' + tab.sessionId, label: 'SFTP ' + tab.title });
+      for (const tab of app.panes()) if (tab.sessionId && tab.status === 'connected') list.push({ id: 'sftp:' + tab.sessionId, label: 'SFTP ' + tab.title });
       for (const [id, c] of ftpConns) list.push({ id, label: 'FTP ' + c.label });
       return list;
     }
@@ -95,7 +95,7 @@ window.Files = (() => {
       let p = startPath;
       if (!p) {
         if (fsId === 'local') p = app.settings.localDir || app.home;
-        else if (fsId.startsWith('sftp:')) { const tab = app.tabs.find(x => 'sftp:' + x.sessionId === fsId); const hh = tab && tab.hostId ? Hosts.byId(tab.hostId) : null; p = (hh && hh.startDir) || (tab && tab.cwd) || null; if (!p) { try { p = await window.api.fs.home(fsId); } catch (e) { UI.errToast(e); p = '/'; } } }
+        else if (fsId.startsWith('sftp:')) { const tab = app.panes().find(x => 'sftp:' + x.sessionId === fsId); const hh = tab && tab.hostId ? Hosts.byId(tab.hostId) : null; p = (hh && hh.startDir) || (tab && tab.cwd) || null; if (!p) { try { p = await window.api.fs.home(fsId); } catch (e) { UI.errToast(e); p = '/'; } } }
         else { const c = ftpConns.get(fsId); p = (c && c.home) || '/'; }
       }
       await this.load(p);

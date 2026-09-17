@@ -27,7 +27,8 @@ window.TerminalTab = (() => {
       this.cwd = null; this.remoteHome = null;
       this.title = o.entry.name || `${o.entry.username || ''}@${o.entry.host}`;
       this.wrap = UI.h('div', { class: 'term-wrap', style: { padding: (o.settings.termPadding == null ? 10 : o.settings.termPadding) + 'px' } });
-      o.container.append(this.wrap);
+      if (o.container) o.container.append(this.wrap);
+      this.group = null;
       this._buildTerm();
     }
 
@@ -67,6 +68,8 @@ window.TerminalTab = (() => {
       this.wrap.addEventListener('contextmenu', (e) => { e.preventDefault(); if (this.settings.rightClickPaste) this.paste(); });
       this.wrap.addEventListener('mouseup', (e) => { if (e.button === 1) { e.preventDefault(); this.paste(); } });
       this.wrap.addEventListener('wheel', (e) => { if (e.ctrlKey) { e.preventDefault(); this.cb.onZoom && this.cb.onZoom(e.deltaY < 0 ? 1 : -1); } }, { passive: false });
+      this.wrap.addEventListener('mousedown', () => this.cb.onFocus && this.cb.onFocus(this));
+      this.wrap.addEventListener('focusin', () => this.cb.onFocus && this.cb.onFocus(this));
       this._ro = new ResizeObserver(() => this.fitNow());
       this._ro.observe(this.wrap);
     }
@@ -91,6 +94,8 @@ window.TerminalTab = (() => {
       // let the app handle global shortcuts
       if ((e.ctrlKey || e.metaKey) && (ctrlShift || ['KeyP', 'Tab', 'PageUp', 'PageDown', 'Equal', 'Minus', 'Digit0'].includes(e.code))) return false;
       if (e.altKey && /^Digit[1-9]$/.test(e.code)) return false;
+      if (e.altKey && e.shiftKey && (e.code === 'Equal' || e.code === 'Minus')) return false;
+      if (e.altKey && !e.shiftKey && !e.ctrlKey && /^Arrow/.test(e.code)) return false;
       return true;
     }
 
@@ -101,7 +106,7 @@ window.TerminalTab = (() => {
     }
 
     fitNow() {
-      if (this.wrap.hidden || !this.wrap.isConnected) return;
+      if (this.wrap.hidden || !this.wrap.isConnected || this.wrap.offsetWidth === 0) return;
       try { this.fit.fit(); } catch (_) {}
     }
 

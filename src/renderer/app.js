@@ -13,54 +13,86 @@ window.App = (() => {
   app.fitActive = () => { requestAnimationFrame(() => { const tb = app.activeTab(); if (tb) tb.fitNow(); }); };
   app.tabBySession = (sid) => app.tabs.find(x => x.sessionId === sid);
 
-  // ---------- tabs ----------
-  app.openTerminal = async ({ hostId, entry }) => {
-    const tab = new TerminalTab({ hostId, entry, settings: app.settings, container: $('#terminals'), callbacks: {
-      onStatus: (tb, st) => { renderTabs(); updateStatus(); Files.onSessionsChanged(); Hosts.render(); if (st === 'connected' && Files.visible() && Files.panes[1].fsId === 'local' && Files.panes[1].path === '') Files.openFor({ sessionId: tb.sessionId }); },
-      onTitle: (tb, title) => { if (tb === app.activeTab()) window.api.window.setTitle(`${title} — terhui`); },
-      onCwd: (tb, p) => Files.onCwd(tb, p),
-      onResize: () => updateStatus(),
-      onZoom: (d) => app.zoom(d),
-    } });
-    app.tabs.push(tab);
-    activateTab(tab.id);
-    await tab.connect();
-    return tab;
+  // ---------- tabs = groups of split panes ----------
+  app.panes = () => app.tabs.flatMap(g => g.panes);
+  app.tabBySession = (sid) => app.panes().find(x => x.sessionId === sid);
+  app.sessionsForHost = (hostId) => app.panes().filter(x => x.hostId === hostId && x.status === 'connected');
+  app.activeGroup = () => app.tabs.find(g => g.id === app.activeId) || null;
+  app.activeTab = () => { const g = app.activeGroup(); return g ? (g.activePane || g.panes[0] || null) : null; };
+  app.onPaneFocus = () => { updateStatus(); app.updateIndexStatus(); };
+
+  const paneCallbacks = {
+    onStatus: (tb, st) => { renderTabs(); updateStatus(); Files.onSessionsChanged(); Hosts.render(); if (st === 'connected' && Files.visible() && Files.panes[1].fsId === 'local' && Files.panes[1].path === '') Files.openFor({ sessionId: tb.sessionId }); },
+    onTitle: (tb, title) => { if (tb === app.activeTab()) window.api.window.setTitle(`${title} — terhui`); renderTabs(); },
+    onCwd: (tb, p) => Files.onCwd(tb, p),
+    onResize: (tb) => { if (tb === app.activeTab()) updateStatus(); },
+    onZoom: (d) => app.zoom(d),
+    onFocus: (tb) => { if (tb.group && tb.group.activePane !== tb) tb.group.focus(tb); },
   };
+
+  /** Open a terminal: in a new tab, or as a split of pane `from` (dir 'h' | 'v'). Returns the pane. */
+  app.openTerminal = async ({ hostId, entry, from, dir }) => {
+    const pane = new TerminalTab({ hostId, entry, settings: app.settings, callbacks: paneCallbacks });
+    let group = from ? from.group : null;
+    if (!group) { group = new TabGroup(app); app.tabs.push(group); $('#terminals').append(group.wrap); }
+    group.add(pane, from, dir);
+    activateTab(group.id);
+    renderTabs();
+    await pane.connect();
+    return pane;
+  };
+  app.split = (dir) => { const from = app.activeTab(); if (!from) return; if (!dir) { const r = from.wrap.getBoundingClientRect(); dir = r.width > r.height * 1.5 ? 'h' : 'v'; } return app.openTerminal({ hostId: from.hostId, entry: from.entry, from, dir }); };
+  app.focusNeighbor = (direction) => { const g = app.activeGroup(); const p = app.activeTab(); if (!g || !p) return; const n = g.neighbor(p, direction); if (n) g.focus(n); };
+
   function activateTab(id) {
     app.activeId = id;
-    for (const tb of app.tabs) tb.id === id ? tb.show() : tb.hide();
+    for (const g of app.tabs) g.id === id ? g.show() : g.hide();
     $('#welcome').hidden = app.tabs.length > 0;
     renderTabs(); updateStatus(); app.updateIndexStatus();
-    const tb = app.activeTab(); if (tb) window.api.window.setTitle(`${tb.title} — terhui`);
+    const g = app.activeGroup(); if (g) window.api.window.setTitle(`${g.title} — terhui`);
   }
   app.activateTab = activateTab;
-  async function closeTab(id, force) {
-    const tb = app.tabs.find(x => x.id === id); if (!tb) return;
-    if (!force && tb.status === 'connected' && app.settings.confirmClose) { if (!await UI.confirm(t('tab.close.confirm'))) return; }
-    const idx = app.tabs.indexOf(tb);
-    app.tabs.splice(idx, 1);
-    await tb.close();
-    if (app.activeId === id) { const next = app.tabs[Math.min(idx, app.tabs.length - 1)]; activateTab(next ? next.id : null); }
-    else renderTabs();
-    Files.onSessionsChanged(); Hosts.render();
+
+  /** Close one pane (asks if it is connected); closes the tab when it was the last pane. */
+  async function closePane(pane, force) {
+    const g = pane.group; if (!g) return;
+    if (!force && pane.status === 'connected' && app.settings.confirmClose) { if (!await UI.confirm(t('tab.close.confirm'))) return; }
+    const left = g.remove(pane);
+    await pane.close();
+    if (left === 0) {
+      const idx = app.tabs.indexOf(g); app.tabs.splice(idx, 1); g.wrap.remove();
+      if (app.activeId === g.id) { const next = app.tabs[Math.min(idx, app.tabs.length - 1)]; activateTab(next ? next.id : null); }
+    }
+    renderTabs(); updateStatus(); Files.onSessionsChanged(); Hosts.render();
     if (!app.tabs.length) window.api.window.setTitle('terhui');
   }
+  app.closePane = closePane;
+  async function closeTab(id, force) {
+    const g = app.tabs.find(x => x.id === id); if (!g) return;
+    if (!force && app.settings.confirmClose && g.panes.some(p => p.status === 'connected')) { if (!await UI.confirm(t('tab.close.confirm'))) return; }
+    for (const p of g.panes.slice()) await closePane(p, true);
+  }
   app.closeTab = closeTab;
+
   function renderTabs() {
     const box = $('#tabs'); box.innerHTML = '';
-    for (const tb of app.tabs) {
-      const hh = tb.hostId ? Hosts.byId(tb.hostId) : null;
-      const inactive = tb.status !== 'connected' && tb.status !== 'connecting';
-      const el = h('div', { class: 'tab' + (tb.id === app.activeId ? ' active' : '') + (inactive ? ' inactive' : ''), dataset: { id: tb.id }, title: `${tb.entry.username || ''}@${tb.entry.host}:${tb.entry.port || 22}${inactive ? ' (' + t('tab.inactive') + ')' : ''}`, onClick: () => activateTab(tb.id), onAuxclick: (e) => { if (e.button === 1) closeTab(tb.id); } },
+    for (const g of app.tabs) {
+      const p = g.activePane || g.panes[0]; if (!p) continue;
+      const hh = p.hostId ? Hosts.byId(p.hostId) : null;
+      const inactive = g.panes.every(x => x.status !== 'connected' && x.status !== 'connecting');
+      const el = h('div', { class: 'tab' + (g.id === app.activeId ? ' active' : '') + (inactive ? ' inactive' : ''), dataset: { id: g.id }, title: `${p.entry.username || ''}@${p.entry.host}:${p.entry.port || 22}${inactive ? ' (' + t('tab.inactive') + ')' : ''}`, onClick: () => activateTab(g.id), onAuxclick: (e) => { if (e.button === 1) closeTab(g.id); } },
         hh && hh.color ? h('span', { class: 'hc', style: { background: hh.color } }) : null,
-        h('span', { class: 'title' }, tb.title + (tb.status === 'connecting' ? '…' : '')),
-        h('span', { class: 'close', onClick: (e) => { e.stopPropagation(); closeTab(tb.id); } }, Icon('close', 12)));
-      el.addEventListener('contextmenu', (e) => { e.preventDefault(); UI.ctxmenu(e.clientX, e.clientY, [
-        { label: t('tab.duplicate'), onClick: () => app.openTerminal({ hostId: tb.hostId, entry: tb.entry }) },
-        { label: t('menu.files'), onClick: () => tb.sessionId && Files.openFor({ sessionId: tb.sessionId }), disabled: !tb.sessionId },
-        { label: t('tab.reconnect'), onClick: () => tb.reconnect(), disabled: tb.status === 'connected' },
-        '-', { label: t('close'), kbd: 'Ctrl+Shift+W', onClick: () => closeTab(tb.id) }]); });
+        h('span', { class: 'title' }, g.title + (p.status === 'connecting' ? '…' : '')),
+        h('span', { class: 'close', onClick: (e) => { e.stopPropagation(); closeTab(g.id); } }, Icon('close', 12)));
+      el.addEventListener('contextmenu', (e) => { e.preventDefault(); activateTab(g.id); UI.ctxmenu(e.clientX, e.clientY, [
+        { label: t('pane.splitRight'), kbd: 'Alt+Shift+=', onClick: () => app.split('h') },
+        { label: t('pane.splitDown'), kbd: 'Alt+Shift+-', onClick: () => app.split('v') },
+        { label: t('tab.duplicate'), onClick: () => app.openTerminal({ hostId: p.hostId, entry: p.entry }) },
+        '-',
+        { label: t('menu.files'), onClick: () => p.sessionId && Files.openFor({ sessionId: p.sessionId }), disabled: !p.sessionId },
+        { label: t('tab.reconnect'), onClick: () => p.reconnect(), disabled: p.status === 'connected' },
+        '-', { label: t('pane.close'), kbd: 'Ctrl+Shift+W', onClick: () => closePane(p), disabled: g.panes.length < 2 },
+        { label: t('close'), onClick: () => closeTab(g.id) }]); });
       box.append(el);
     }
   }
@@ -86,7 +118,7 @@ window.App = (() => {
     let tb = app.sessionsForHost(hostId)[0];
     if (!tb) tb = await app.openTerminal({ hostId, entry: Hosts.byId(hostId) });
     if (!tb.sessionId) return;
-    activateTab(tb.id);
+    activateTab(tb.group.id);
     Jump.open();
   };
 
@@ -153,7 +185,7 @@ window.App = (() => {
     if (persist) window.api.settings.set(patch);
     I18N.setLocale(app.settings.locale);
     applyAppearance();
-    for (const tb of app.tabs) tb.applySettings(app.settings);
+    for (const tb of app.panes()) tb.applySettings(app.settings);
     resetLockTimer();
   }
   app.applySettings = applySettings;
@@ -283,7 +315,7 @@ window.App = (() => {
     });
   }
   async function lock() {
-    for (const tb of app.tabs.slice()) await closeTab(tb.id, true);
+    for (const g of app.tabs.slice()) await closeTab(g.id, true);
     await window.api.vault.lock();
     await startUnlocked();
   }
@@ -318,7 +350,9 @@ window.App = (() => {
         case 'KeyH': e.preventDefault(); toggleSidebar(); return;
         case 'KeyF': e.preventDefault(); openSearch(); return;
         case 'KeyT': e.preventDefault(); if (!inModal) { $('#quick-connect').focus(); } return;
-        case 'KeyW': e.preventDefault(); if (app.activeId) closeTab(app.activeId); return;
+        case 'KeyW': e.preventDefault(); { const p = app.activeTab(); if (p) closePane(p); } return;
+        case 'KeyD': e.preventDefault(); app.split(); return;
+        case 'Enter': e.preventDefault(); { const g = app.activeGroup(); if (g) g.toggleMaximize(); } return;
         case 'KeyN': e.preventDefault(); { const tb = app.activeTab(); if (tb) app.openTerminal({ hostId: tb.hostId, entry: tb.entry }); } return;
         case 'KeyR': e.preventDefault(); if (!inModal || $('.hist-modal')) History.open(); return;
         case 'Tab': e.preventDefault(); cycleTab(-1); return;
@@ -338,6 +372,8 @@ window.App = (() => {
         case 'Digit0': e.preventDefault(); applySettings({ fontSize: 14 }); return;
         case 'Comma': e.preventDefault(); openSettings(); return;
       }
+    } else if (e.altKey && e.shiftKey && !ctrl && (e.code === 'Equal' || e.code === 'Minus')) { e.preventDefault(); app.split(e.code === 'Equal' ? 'h' : 'v');
+    } else if (e.altKey && !ctrl && !e.shiftKey && /^Arrow(Left|Right|Up|Down)$/.test(e.code)) { e.preventDefault(); app.focusNeighbor(e.code.slice(5).toLowerCase());
     } else if (e.altKey && !ctrl && /^Digit[1-9]$/.test(e.code)) {
       const i = +e.code.slice(5) - 1; if (app.tabs[i]) { e.preventDefault(); activateTab(app.tabs[i].id); }
     } else if (e.code === 'F11' && !inModal) { e.preventDefault(); Files.toggle(); }

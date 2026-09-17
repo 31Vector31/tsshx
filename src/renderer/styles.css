@@ -83,7 +83,19 @@ kbd { font: 11px var(--mono); color: var(--fg2); border: 1px solid var(--border)
 #wallpaper { position: absolute; inset: 0; z-index: 0; background-position: center; background-repeat: no-repeat; background-size: cover; pointer-events: none; }
 #wallpaper::after { content: ''; position: absolute; inset: 0; background: var(--wp-dim, rgba(0,0,0,0)); }
 #center.has-wallpaper #terminals { background: transparent; }
-.term-wrap { position: absolute; inset: 0; padding: 10px; }
+.tab-group { position: absolute; inset: 0; display: flex; }
+.split { display: flex; flex: 1 1 0%; min-width: 0; min-height: 0; }
+.split.h { flex-direction: row; } .split.v { flex-direction: column; }
+.divider { flex: 0 0 auto; background: var(--border); }
+.divider.h { width: 1px; cursor: col-resize; } .divider.v { height: 1px; cursor: row-resize; }
+.divider.h::after, .divider.v::after { content: ''; display: block; }
+.divider.h::after { width: 7px; height: 100%; margin-left: -3px; } .divider.v::after { height: 7px; width: 100%; margin-top: -3px; }
+.divider:hover { background: var(--fg2); }
+.drag-overlay { position: fixed; inset: 0; z-index: 90; } .drag-overlay.h { cursor: col-resize; } .drag-overlay.v { cursor: row-resize; }
+.tab-group.multi .term-wrap { box-shadow: inset 0 1px 0 var(--border); }
+.tab-group.multi .term-wrap.active { box-shadow: inset 0 1px 0 var(--fg2); }
+.tab-group.max .term-wrap:not(.active), .tab-group.max .divider { display: none; }
+.term-wrap { position: relative; flex: 1 1 0%; min-width: 0; min-height: 0; overflow: hidden; padding: 10px; }
 .term-wrap[hidden] { display: none; }
 .term-wrap .xterm { height: 100%; }
 .welcome { position: absolute; inset: 0; z-index: 1; display: flex; align-items: center; justify-content: center; color: var(--fg2); }
