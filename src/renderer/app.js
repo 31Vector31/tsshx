@@ -128,7 +128,7 @@ window.App = (() => {
         '-',
         { label: t('menu.files'), onClick: () => p.local ? Files.openFor({ local: true, path: p.fsHome() }) : p.sessionId && Files.openFor({ sessionId: p.sessionId }), disabled: !p.sessionId },
         { label: t('tab.reconnect'), onClick: () => p.reconnect(), disabled: p.status === 'connected' },
-        '-', { label: t('pane.close'), kbd: 'Ctrl+Shift+W', onClick: () => closePane(p), disabled: g.panes.length < 2 },
+        '-', { label: t('pane.close'), kbd: app.platform === 'darwin' ? 'Cmd+W' : 'Ctrl+Shift+W', onClick: () => closePane(p), disabled: g.panes.length < 2 },
         { label: t('close'), onClick: () => closeTab(g.id) }]); });
       box.append(el);
     }
@@ -304,6 +304,7 @@ window.App = (() => {
       L('settings.copyOnSelect'), chk('copyOnSelect'),
       L('settings.rightClickPaste'), chk('rightClickPaste'),
       L('settings.confirmClose'), chk('confirmClose'),
+      ...(app.platform === 'darwin' ? [] : [L('settings.ctrlW'), chk('ctrlWClosesTab')]),
       L('host.localDir'), text('localDir'),
       L('settings.shellIntegration'), chk('shellIntegration'),
       L('settings.windowFrame'), h('div', { class: 'row' }, sel('windowFrame', [['integrated', t('settings.windowFrame.integrated')], ['native', t('settings.windowFrame.native')]], () => { dirty.windowFrame = f.windowFrame.value; app.settings.windowFrame = f.windowFrame.value; }), h('button', { onClick: () => { window.api.settings.set({ ...dirty }); window.api.window.relaunch(); } }, t('settings.restart'))),
@@ -410,6 +411,12 @@ window.App = (() => {
         case 'Comma': e.preventDefault(); openSettings(); return;
       }
     } else if (ctrl && !e.altKey) {
+      // Cmd+W (macOS) always closes the pane; Ctrl+W does so outside the terminal, or inside it too when enabled
+      // in Settings (by default the shell keeps Ctrl+W = delete word).
+      if (e.code === 'KeyW' && !inModal) {
+        const inTerm = !!(document.activeElement && document.activeElement.closest('.xterm'));
+        if (e.metaKey || !inTerm || app.settings.ctrlWClosesTab) { e.preventDefault(); const p = app.activeTab(); if (p) closePane(p); return; }
+      }
       switch (e.code) {
         case 'KeyP': e.preventDefault(); if (!inModal || $('.jump-modal')) Jump.open(); return;
         case 'Tab': e.preventDefault(); cycleTab(1); return;

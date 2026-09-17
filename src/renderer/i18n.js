@@ -48,6 +48,7 @@ window.I18N = (() => {
       'files.wslUnreachable': 'Этот путь не виден из WSL-дистрибутива',
       'settings.fontHint': 'Иконки в ls и промптах (глифы Nerd Font) требуют установленного Nerd-шрифта; любой "… Nerd Font" из списка подхватится сам.',
       'ago.now': 'только что', 'ago.m': '{n} мин назад', 'ago.h': '{n} ч назад', 'ago.d': '{n} дн назад', 'ago.mo': '{n} мес назад', 'ago.y': '{n} лет назад', 'hist.used': 'использовано {n} раз',
+      'settings.ctrlW': 'Ctrl+W закрывает панель и внутри терминала (shell теряет удаление слова)',
       'files.name': 'Имя', 'files.size': 'Размер', 'files.modified': 'Изменён', 'files.mode': 'Права', 'tab.inactive': 'неактивно', 'settings.theme.pick': 'Цветовая схема',
     },
     en: {
@@ -97,6 +98,7 @@ window.I18N = (() => {
       'files.wslUnreachable': 'This path is not visible from the WSL distro',
       'settings.fontHint': 'Icons in ls/prompts (Nerd Font glyphs) need a Nerd Font installed; any "… Nerd Font" family in this list is used automatically.',
       'ago.now': 'just now', 'ago.m': '{n} min ago', 'ago.h': '{n} h ago', 'ago.d': '{n} days ago', 'ago.mo': '{n} months ago', 'ago.y': '{n} years ago', 'hist.used': 'used {n} times',
+      'settings.ctrlW': 'Ctrl+W closes the pane inside the terminal too (shell loses delete-word)',
       'files.name': 'Name', 'files.size': 'Size', 'files.modified': 'Modified', 'files.mode': 'Mode', 'tab.inactive': 'inactive', 'settings.theme.pick': 'Colour scheme',
     },
   };

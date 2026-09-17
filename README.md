@@ -73,7 +73,7 @@ npm run dist:linux # AppImage + deb   (dist:win â†’ nsis + portable, dist:mac â†
 | Ctrl+Shift+N | Duplicate current session |
 | Ctrl+Shift+5 / 6, Ctrl+Shift+D | Split pane right / down / auto |
 | Alt+arrows, Ctrl+Shift+Enter | Move between panes, maximise pane |
-| Ctrl+Shift+W | Close pane / tab |
+| Ctrl+Shift+W, Cmd+W (macOS) | Close pane / tab (Ctrl+W too outside the terminal, or inside if enabled in Settings) |
 | Ctrl+Tab / Ctrl+Shift+Tab, Alt+1..9 | Switch tabs |
 | Ctrl+Shift+H | Toggle host sidebar |
 | Ctrl+Shift+L | Lock vault |

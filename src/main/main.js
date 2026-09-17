@@ -37,7 +37,7 @@ const DEFAULT_SETTINGS = {
   bgImage: '', bgDim: 0.55, bgBlur: 0, bgFit: 'cover', termOpacity: 0.85, termPadding: 10, chromeFromTheme: true,
   // window chrome: 'integrated' = OS frame + Window Controls Overlay (tabs live in the title bar), 'native' = plain OS title bar
   windowFrame: 'integrated', winMaterial: 'none', chromeBg: '#202329', chromeFg: '#d4d7dd',
-  shellIntegration: true,
+  shellIntegration: true, ctrlWClosesTab: false,
   localProfiles: null,   // null = not detected yet; [] = user removed all
 };
 const IMAGE_EXT = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'avif'];
