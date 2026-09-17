@@ -8,7 +8,14 @@ const { execFileSync } = require('child_process');
 const EventEmitter = require('events');
 
 let pty = null;
-function loadPty() { if (!pty) pty = require('node-pty'); return pty; }
+function loadPty() {
+  if (pty) return pty;
+  pty = require('node-pty');
+  if (process.platform === 'darwin') {   // make sure the spawn helper is executable (npm may drop the bit)
+    try { const helper = path.join(path.dirname(require.resolve('node-pty/package.json')), 'prebuilds', `darwin-${process.arch}`, 'spawn-helper'); if (fs.existsSync(helper) && !(fs.statSync(helper).mode & 0o111)) fs.chmodSync(helper, 0o755); } catch (_) {}
+  }
+  return pty;
+}
 
 const exists = (p) => { try { fs.accessSync(p); return true; } catch (_) { return false; } };
 const which = (cmd) => {
