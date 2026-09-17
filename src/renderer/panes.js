@@ -55,6 +55,18 @@ window.TabGroup = (() => {
       dst.add(pane, target, (side === 'left' || side === 'right') ? 'h' : 'v', side === 'left' || side === 'top');
       if (left === 0 && src.app.dropGroup) src.app.dropGroup(src);
     }
+    /** Dock a whole tab (group) next to `target` pane on the given side; the source tab disappears. */
+    static dock(group, target, side) {
+      const dst = target.group; if (!dst || !group || group === dst || !group.root) return;
+      const node = dst._find(dst.root, target); if (!node) return;
+      const incoming = group.root;
+      for (const p of group.panes) { p.group = dst; dst.panes.push(p); }
+      const kids = (side === 'left' || side === 'top') ? [incoming, node] : [node, incoming];
+      dst._replace(node, { type: 'split', dir: (side === 'left' || side === 'right') ? 'h' : 'v', children: kids, sizes: [1, 1] });
+      const moved = group.panes.slice(); group.panes = []; group.root = null; group.activePane = null;
+      dst.maximized = false; dst.layout(); dst.focus(moved[0]);
+      dst.app.dropGroup && dst.app.dropGroup(group);
+    }
     focus(pane) {
       if (!pane || !this.panes.includes(pane)) return;
       this.activePane = pane;
@@ -127,18 +139,21 @@ window.TabGroup = (() => {
       const box = h('div', { class: 'pane-box' }, head, pane.wrap, hint);
       pane.wrap.style.flex = '';
       const zoneOf = (e) => { const r = box.getBoundingClientRect(); const x = (e.clientX - r.left) / r.width, y = (e.clientY - r.top) / r.height; const dx = Math.min(x, 1 - x), dy = Math.min(y, 1 - y); return dx < dy ? (x < 0.5 ? 'left' : 'right') : (y < 0.5 ? 'top' : 'bottom'); };
+      const TAB = 'application/x-terhui-tab';
       box.addEventListener('dragover', (e) => {
-        if (![...e.dataTransfer.types].includes(DND)) return;
+        const types = [...e.dataTransfer.types]; if (!types.includes(DND) && !types.includes(TAB)) return;
         e.preventDefault(); e.dataTransfer.dropEffect = 'move';
         const z = zoneOf(e); hint.hidden = false; hint.className = 'drop-hint ' + z;
       });
       box.addEventListener('dragleave', (e) => { if (!box.contains(e.relatedTarget)) hint.hidden = true; });
       box.addEventListener('drop', (e) => {
         hint.hidden = true;
-        const id = e.dataTransfer.getData(DND); if (!id) return;
+        const id = e.dataTransfer.getData(DND);
+        const gid = e.dataTransfer.getData(TAB);
+        if (!id && !gid) return;
         e.preventDefault();
-        const moving = paneById.get(id); if (!moving) return;
-        TabGroup.move(moving, pane, zoneOf(e));
+        if (id) { const moving = paneById.get(id); if (moving) TabGroup.move(moving, pane, zoneOf(e)); }
+        else { const g = app.tabs.find(x => x.id === gid); if (g) TabGroup.dock(g, pane, zoneOf(e)); }
         app.renderTabs && app.renderTabs();
       });
       return box;

@@ -106,7 +106,8 @@ window.App = (() => {
         h('span', { class: 'title' }, g.title + (p.status === 'connecting' ? '…' : '')),
         h('span', { class: 'close', onClick: (e) => { e.stopPropagation(); closeTab(g.id); } }, Icon('close', 12)));
       el.draggable = true;
-      el.addEventListener('dragstart', (e) => { e.dataTransfer.setData('application/x-terhui-tab', g.id); e.dataTransfer.effectAllowed = 'move'; });
+      el.addEventListener('dragstart', (e) => { e.dataTransfer.setData('application/x-terhui-tab', g.id); e.dataTransfer.effectAllowed = 'move'; document.body.classList.add('pane-dragging'); });
+      el.addEventListener('dragend', () => document.body.classList.remove('pane-dragging'));
       el.addEventListener('contextmenu', (e) => { e.preventDefault(); activateTab(g.id); UI.ctxmenu(e.clientX, e.clientY, [
         { label: t('pane.splitRight'), kbd: 'Ctrl+Shift+5', onClick: () => app.split('h') },
         { label: t('pane.splitDown'), kbd: 'Ctrl+Shift+6', onClick: () => app.split('v') },
