@@ -140,8 +140,7 @@ window.App = (() => {
     $('#st-size').textContent = tb ? `${tb.term.cols}×${tb.term.rows}` : '';
   }
   app.updateIndexStatus = async () => {
-    const tb = app.activeTab(); if (!tb) { $('#st-index').textContent = ''; return; }
-    try { const info = await window.api.index.info(Jump.indexKey(tb)); $('#st-index').textContent = info.exists ? t('st.index', { n: info.count }) : t('st.noindex'); } catch (_) { $('#st-index').textContent = ''; }
+    return;   // index status is shown inside the jump palette; the status bar no longer carries it
   };
   app.renderTabs = renderTabs;
   app.zoom = (d) => { const fs = Math.max(6, Math.min(40, app.settings.fontSize + d)); applySettings({ fontSize: fs }); };
@@ -187,7 +186,7 @@ window.App = (() => {
   window.api.on('ssh:shell-closed', ({ sessionId }) => { const tb = app.tabBySession(sessionId); if (tb && tb.sessionId) window.api.ssh.close(sessionId); });
   window.api.on('ssh:banner', ({ sessionId, msg }) => { const tb = app.tabBySession(sessionId); if (tb) tb.term.write(msg.replace(/\r?\n/g, '\r\n')); });
   window.api.on('ssh:error', ({ message }) => UI.toast(message, 'error'));
-  window.api.on('index:progress', (p) => { const tb = app.activeTab(); if (tb && Jump.indexKey(tb) === p.hostId) $('#st-index').textContent = p.done ? t('st.index', { n: p.count }) : t('jump.building', { n: p.count }); });
+  window.api.on('index:progress', (p) => { const tb = app.activeTab(); if (tb && Jump.indexKey(tb) === p.hostId) $('#st-msg').textContent = p.done ? '' : t('jump.building', { n: p.count }); });
 
   // ---------- host stats in the status bar ----------
   const fmtG = (b) => (b >= 1024 ** 3 ? (b / 1024 ** 3).toFixed(1) + 'G' : Math.round(b / 1024 ** 2) + 'M');
@@ -207,7 +206,7 @@ window.App = (() => {
       if (s.cpu != null) parts.push(h('span', { class: pctClass(s.cpu), title: (s.cores ? s.cores + ' cores' : '') }, h('b', null, 'CPU'), s.cpu + '%'));
       if (memP != null) parts.push(h('span', { class: pctClass(memP), title: `${fmtG(s.memUsed)} / ${fmtG(s.memTotal)}${s.swapTotal ? ` · swap ${fmtG(s.swapUsed)} / ${fmtG(s.swapTotal)}` : ''}` }, h('b', null, 'MEM'), `${fmtG(s.memUsed)}/${fmtG(s.memTotal)}`));
       if (diskP != null) parts.push(h('span', { class: pctClass(diskP), title: `${fmtG(s.diskUsed)} / ${fmtG(s.diskTotal)} used on /` }, h('b', null, 'DISK'), diskP + '%'));
-      if (s.load) parts.push(h('span', { class: (s.cores && s.load[0] > s.cores) ? 'hot' : '', title: 'load average 1 / 5 / 15 min' + (s.cores ? ` · ${s.cores} cores` : '') }, h('b', null, 'LOAD'), s.load.map(x => x.toFixed(2)).join(' ')));
+      if (s.load) parts.push(h('span', { class: (s.cores && s.load[0] > s.cores) ? 'hot' : '', title: t('stats.loadHint') }, h('b', null, 'LOAD'), s.load.map(x => x.toFixed(2)).join(' ') + (s.cores ? ` / ${s.cores}` : '')));
       if (s.uptime != null) parts.push(h('span', { title: 'uptime' }, h('b', null, 'UP'), fmtUp(s.uptime)));
       el.innerHTML = ''; el.append(...parts); statsKey = key;
     } catch (_) { if (statsKey !== key) el.innerHTML = ''; }
