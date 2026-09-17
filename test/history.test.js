@@ -30,3 +30,13 @@ test('history: split blob + merge ranking', () => {
   const ls = merged.find(x => x.cmd === 'ls');
   assert.equal(ls.count, 3); assert.equal(ls.src, 'bash,zsh');
 });
+
+test('stats: parse remote linux script output with cpu delta', () => {
+  const { parseRemote } = require('../src/main/stats');
+  const out1 = '@OS Linux\n@L\n0.42 0.38 0.35 1/512 1234\n@S\ncpu 1000 0 500 8000 100 0 0 0 0 0\n@M\nMemTotal: 8000000 kB\nMemAvailable: 4000000 kB\nSwapTotal: 1000000 kB\nSwapFree: 900000 kB\n@U\n93784.5 300000\n@N\n4\n@D\n/dev/sda1 100000000 68000000 32000000 68% /\n';
+  const r1 = parseRemote('k', out1);
+  assert.equal(r1.cpu, null); assert.deepEqual(r1.load, [0.42, 0.38, 0.35]); assert.equal(r1.cores, 4); assert.equal(r1.memTotal, 8000000 * 1024); assert.equal(r1.memUsed, 4000000 * 1024); assert.equal(r1.swapUsed, 100000 * 1024);
+  assert.equal(r1.uptime, 93784.5); assert.equal(r1.diskTotal, 100000000 * 1024); assert.equal(r1.diskUsed, 68000000 * 1024);
+  const r2 = parseRemote('k', out1.replace('cpu 1000 0 500 8000 100 0 0 0 0 0', 'cpu 1300 0 600 8500 100 0 0 0 0 0'));
+  assert.equal(r2.cpu, 44);   // delta total 900, idle delta 500 → 1 - 500/900
+});

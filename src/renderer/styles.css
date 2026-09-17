@@ -168,7 +168,10 @@ body.pane-dragging .pane-box { pointer-events: auto; }
 /* status bar */
 #statusbar { display: flex; align-items: center; gap: 16px; height: 22px; padding: 0 8px; background: var(--bg2); border-top: 1px solid var(--border); font-size: 11px; color: var(--fg2); flex-shrink: 0; font-variant-numeric: tabular-nums; }
 #statusbar span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-#st-cwd { font-family: var(--mono); max-width: 40vw; }
+#st-cwd { font-family: var(--mono); max-width: 30vw; }
+#st-stats { display: flex; gap: 12px; font-variant-numeric: tabular-nums; }
+#st-stats b { font-weight: normal; color: var(--fg2); margin-right: 3px; }
+#st-stats .hot { color: var(--warn); } #st-stats .crit { color: var(--danger); }
 
 /* modals */
 #modals { position: fixed; inset: 0; pointer-events: none; z-index: 50; }

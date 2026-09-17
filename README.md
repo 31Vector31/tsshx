@@ -54,6 +54,9 @@ npm run dist:linux # AppImage + deb   (dist:win → nsis + portable, dist:mac �
   (FTP: recursive walk), gzipped on disk per host. Fuzzy search (multi-term, subsequence, basename boost),
   `Enter` → `cd` in the terminal, `Ctrl+Enter` → open in the file panel. Rebuild any time, cancel, custom root.
 
+**Status bar**: cwd of the active pane, host resources of the active tab refreshed every 5 s (CPU %, memory, root disk,
+load average, uptime) via one `/proc` read over SSH (sysctl/vm_stat on macOS hosts), `os`/`statfs` locally, inside the distro for WSL.
+
 **Shell history (Ctrl+Shift+R)**
 - Reads `.bash_history`, `.zsh_history` (extended format, multi-line) and fish history of the host over the SSH session,
   merges them with commands run from the palette, ranks by recency and frequency. Search, `Enter` inserts the command on

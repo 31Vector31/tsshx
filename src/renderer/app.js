@@ -19,10 +19,10 @@ window.App = (() => {
   app.sessionsForHost = (hostId) => app.panes().filter(x => x.hostId === hostId && x.status === 'connected');
   app.activeGroup = () => app.tabs.find(g => g.id === app.activeId) || null;
   app.activeTab = () => { const g = app.activeGroup(); return g ? (g.activePane || g.panes[0] || null) : null; };
-  app.onPaneFocus = (pane) => { updateStatus(); app.updateIndexStatus(); renderTabs(); Files.syncToTab(pane); };
+  app.onPaneFocus = (pane) => { updateStatus(); app.updateIndexStatus(); renderTabs(); Files.syncToTab(pane); app.refreshStats(); };
 
   const paneCallbacks = {
-    onStatus: (tb, st) => { renderTabs(); updateStatus(); Files.onSessionsChanged(); Hosts.render(); if (st === 'connected' && tb === app.activeTab()) Files.syncToTab(tb, true); },
+    onStatus: (tb, st) => { renderTabs(); updateStatus(); Files.onSessionsChanged(); Hosts.render(); if (st === 'connected' && tb === app.activeTab()) { Files.syncToTab(tb, true); app.refreshStats(); } if (st !== 'connected' && tb === app.activeTab()) app.refreshStats(); },
     onTitle: (tb, title) => { if (tb === app.activeTab()) window.api.window.setTitle(`${title} — terhui`); renderTabs(); },
     onCwd: (tb, p) => { console.debug('[cwd]', tb.id, tb.sessionId, p, 'active:', tb === app.activeTab()); Files.onCwd(tb, p); if (tb === app.activeTab()) updateStatus(); },
     onResize: (tb) => { if (tb === app.activeTab()) updateStatus(); },
@@ -55,7 +55,7 @@ window.App = (() => {
     $('#welcome').hidden = app.tabs.length > 0;
     renderTabs(); updateStatus(); app.updateIndexStatus();
     const g = app.activeGroup(); if (g) window.api.window.setTitle(`${g.title} — terhui`);
-    Files.syncToTab(app.activeTab());
+    Files.syncToTab(app.activeTab()); app.refreshStats();
   }
   app.activateTab = activateTab;
 
@@ -188,6 +188,33 @@ window.App = (() => {
   window.api.on('ssh:banner', ({ sessionId, msg }) => { const tb = app.tabBySession(sessionId); if (tb) tb.term.write(msg.replace(/\r?\n/g, '\r\n')); });
   window.api.on('ssh:error', ({ message }) => UI.toast(message, 'error'));
   window.api.on('index:progress', (p) => { const tb = app.activeTab(); if (tb && Jump.indexKey(tb) === p.hostId) $('#st-index').textContent = p.done ? t('st.index', { n: p.count }) : t('jump.building', { n: p.count }); });
+
+  // ---------- host stats in the status bar ----------
+  const fmtG = (b) => (b >= 1024 ** 3 ? (b / 1024 ** 3).toFixed(1) + 'G' : Math.round(b / 1024 ** 2) + 'M');
+  const fmtUp = (s) => { if (s == null) return ''; const d = Math.floor(s / 86400), hh = Math.floor((s % 86400) / 3600), m = Math.floor((s % 3600) / 60); return d ? `${d}d ${hh}h` : hh ? `${hh}h ${m}m` : `${m}m`; };
+  const pctClass = (p) => (p >= 90 ? 'crit' : p >= 70 ? 'hot' : '');
+  let statsTimer = null, statsBusy = false, statsKey = null;
+  async function pollStats(immediate) {
+    const tb = app.activeTab(); const el = $('#st-stats');
+    if (!tb || !tb.sessionId || tb.status !== 'connected') { el.innerHTML = ''; statsKey = null; return; }
+    const key = tb.local ? 'local:' + (tb.profile.wsl || 'host') : 'ssh:' + tb.sessionId;
+    if (statsBusy) return; statsBusy = true;
+    try {
+      const s = await window.api.stats.get(tb.local ? { local: true, wsl: tb.profile.wsl || '', key } : { sessionId: tb.sessionId, key });
+      if (app.activeTab() !== tb) return;
+      const parts = [];
+      const memP = s.memTotal ? Math.round(s.memUsed / s.memTotal * 100) : null; const diskP = s.diskTotal ? Math.round(s.diskUsed / s.diskTotal * 100) : null;
+      if (s.cpu != null) parts.push(h('span', { class: pctClass(s.cpu), title: (s.cores ? s.cores + ' cores' : '') }, h('b', null, 'CPU'), s.cpu + '%'));
+      if (memP != null) parts.push(h('span', { class: pctClass(memP), title: `${fmtG(s.memUsed)} / ${fmtG(s.memTotal)}${s.swapTotal ? ` · swap ${fmtG(s.swapUsed)} / ${fmtG(s.swapTotal)}` : ''}` }, h('b', null, 'MEM'), `${fmtG(s.memUsed)}/${fmtG(s.memTotal)}`));
+      if (diskP != null) parts.push(h('span', { class: pctClass(diskP), title: `${fmtG(s.diskUsed)} / ${fmtG(s.diskTotal)} used on /` }, h('b', null, 'DISK'), diskP + '%'));
+      if (s.load) parts.push(h('span', { class: (s.cores && s.load[0] > s.cores) ? 'hot' : '', title: 'load average 1 / 5 / 15 min' + (s.cores ? ` · ${s.cores} cores` : '') }, h('b', null, 'LOAD'), s.load.map(x => x.toFixed(2)).join(' ')));
+      if (s.uptime != null) parts.push(h('span', { title: 'uptime' }, h('b', null, 'UP'), fmtUp(s.uptime)));
+      el.innerHTML = ''; el.append(...parts); statsKey = key;
+    } catch (_) { if (statsKey !== key) el.innerHTML = ''; }
+    finally { statsBusy = false; }
+  }
+  function startStats() { clearInterval(statsTimer); statsTimer = setInterval(() => pollStats(), 5000); pollStats(true); }
+  app.refreshStats = () => { $('#st-stats').innerHTML = ''; pollStats(true); setTimeout(() => pollStats(), 1200); };   // second sample gives a cpu % quickly
 
   // ---------- appearance ----------
   async function applyAppearance() {
@@ -488,6 +515,7 @@ window.App = (() => {
     window.addEventListener('resize', () => app.fitActive());
     await startUnlocked();
     if (app.settings.filePanelOpen) Files.show();
+    startStats();
     app.ready = true;
   }
   init().catch(err => { console.error(err); UI.toast(String(err), 'error', 10000); });

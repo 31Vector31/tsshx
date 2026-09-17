@@ -9,6 +9,7 @@ const { LocalFS, SftpFS, FtpFS, TransferManager } = require('./fs-backends');
 const { Indexer } = require('./indexer');
 const { HistoryStore } = require('./history');
 const { LocalShellManager, detectProfiles, localHistoryFiles } = require('./local-shell');
+const stats = require('./stats');
 
 if (process.env.TERHUI_USER_DATA) app.setPath('userData', process.env.TERHUI_USER_DATA);
 app.setName('terhui');
@@ -306,6 +307,9 @@ function registerIpc() {
     sources.push({ src: 'terhui', entries: history.extras(hostKey) });
     return { entries: mergeRank(sources), files: sources.map(s => s.src), pins: history.getPins(hostKey) };
   });
+
+  // host resource stats for the status bar
+  handle('stats:get', ({ sessionId, local, wsl, key }) => local ? (wsl ? stats.wslStats(wsl, key) : stats.localStats(key)) : stats.remoteStats(sessions.require(sessionId), key));
 
   // shell history
   handle('history:fetch', (sessionId, hostKey) => history.fetch(sessions.require(sessionId), hostKey));
