@@ -155,7 +155,17 @@ window.TabGroup = (() => {
         const ds = dragState; if (!ds) return;
         e.preventDefault(); endDrag();
         if (ds.kind === 'pane') { const moving = paneById.get(ds.id); if (moving) TabGroup.move(moving, pane, zoneOf(e)); }
-        else { const g = app.tabs.find(x => x.id === ds.id); if (g) TabGroup.dock(g, pane, zoneOf(e)); }
+        else {
+          const g = app.tabs.find(x => x.id === ds.id); const zone = zoneOf(e);
+          if (g && g !== pane.group) TabGroup.dock(g, pane, zone);
+          else if (g) {
+            // The active tab dropped onto its own area: it takes the chosen side, the neighbouring tab
+            // (the one before it in the tab strip, else the one after) fills the other side.
+            const idx = app.tabs.indexOf(g); const other = app.tabs[idx - 1] || app.tabs[idx + 1];
+            const opposite = { left: 'right', right: 'left', top: 'bottom', bottom: 'top' }[zone];
+            if (other) TabGroup.dock(other, pane, opposite);
+          }
+        }
         app.renderTabs && app.renderTabs();
       });
       return box;
