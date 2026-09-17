@@ -101,7 +101,13 @@ window.UI = (() => {
 
   const fmtSize = (n) => { if (n == null) return ''; if (n < 1024) return n + ' B'; const u = ['KB', 'MB', 'GB', 'TB']; let i = -1; do { n /= 1024; i++; } while (n >= 1024 && i < u.length - 1); return n.toFixed(n < 10 ? 1 : 0) + ' ' + u[i]; };
   const fmtDate = (ms) => { if (!ms) return ''; const d = new Date(ms); const p = (x) => String(x).padStart(2, '0'); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`; };
+  const fmtAgoWords = (ms) => {
+    const s = Math.round((Date.now() - ms) / 1000);
+    if (s < 90) return t('ago.now'); const m = Math.round(s / 60); if (m < 60) return t('ago.m', { n: m });
+    const hh = Math.round(m / 60); if (hh < 36) return t('ago.h', { n: hh }); const d = Math.round(hh / 24); if (d < 45) return t('ago.d', { n: d });
+    const mo = Math.round(d / 30); if (mo < 18) return t('ago.mo', { n: mo }); return t('ago.y', { n: Math.round(d / 365) });
+  };
   const fmtAgo = (ms) => { const s = Math.round((Date.now() - ms) / 1000); if (s < 60) return s + 's'; if (s < 3600) return Math.round(s / 60) + 'm'; if (s < 86400) return Math.round(s / 3600) + 'h'; return Math.round(s / 86400) + 'd'; };
 
-  return { $, $$, h, esc, modal, confirm, prompt, toast, errToast, ctxmenu, fmtSize, fmtDate, fmtAgo, KEEP_OPEN, get modalOpen() { return stack.length > 0; } };
+  return { $, $$, h, esc, modal, confirm, prompt, toast, errToast, ctxmenu, fmtSize, fmtDate, fmtAgo, fmtAgoWords, KEEP_OPEN, get modalOpen() { return stack.length > 0; } };
 })();

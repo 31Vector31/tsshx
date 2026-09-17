@@ -51,7 +51,7 @@ window.History = (() => {
         const row = h('div', { class: 'r' + (i === active ? ' active' : '') + (pinned ? ' pinned' : '') + (e.cmd.includes('\n') ? ' multi' : ''), title: e.cmd, onClick: () => { active = i; render(); }, onDblclick: () => go(i, false) },
           h('button', { class: 'pinbtn', title: t('hist.pin'), onClick: (ev) => { ev.stopPropagation(); togglePin(e.cmd); } }, Icon('pin', 12)),
           h('span', { class: 'cmd' }, hl(e.cmd.split('\n')[0], terms)),
-          h('span', { class: 'meta' }, (e.count > 1 ? '×' + e.count + ' ' : '') + (e.last ? UI.fmtAgo(e.last) : '')));
+          h('span', { class: 'meta', title: (e.count > 1 ? t('hist.used', { n: e.count }) + (e.last ? ' · ' : '') : '') + (e.last ? UI.fmtDate(e.last) : '') }, [e.count > 1 ? e.count + '×' : '', e.last ? UI.fmtAgoWords(e.last) : ''].filter(Boolean).join(' · ')));
         res.append(row);
       });
       const a = res.children[active]; if (a) a.scrollIntoView({ block: 'nearest' });

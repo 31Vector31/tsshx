@@ -47,6 +47,7 @@ window.I18N = (() => {
       'local.title': 'Локальные', 'local.add': 'Добавить локальный shell', 'local.redetect': 'Найти shell', 'local.edit': 'Локальный shell', 'local.command': 'Команда', 'local.args': 'Аргументы', 'local.cwd': 'Стартовый каталог', 'local.kind': 'Тип shell', 'local.exited': 'Shell завершён', 'menu.open': 'Открыть',
       'files.wslUnreachable': 'Этот путь не виден из WSL-дистрибутива',
       'settings.fontHint': 'Иконки в ls и промптах (глифы Nerd Font) требуют установленного Nerd-шрифта; любой "… Nerd Font" из списка подхватится сам.',
+      'ago.now': 'только что', 'ago.m': '{n} мин назад', 'ago.h': '{n} ч назад', 'ago.d': '{n} дн назад', 'ago.mo': '{n} мес назад', 'ago.y': '{n} лет назад', 'hist.used': 'использовано {n} раз',
       'files.name': 'Имя', 'files.size': 'Размер', 'files.modified': 'Изменён', 'files.mode': 'Права', 'tab.inactive': 'неактивно', 'settings.theme.pick': 'Цветовая схема',
     },
     en: {
@@ -95,6 +96,7 @@ window.I18N = (() => {
       'local.title': 'Local', 'local.add': 'Add local shell', 'local.redetect': 'Detect shells', 'local.edit': 'Local shell', 'local.command': 'Command', 'local.args': 'Arguments', 'local.cwd': 'Start directory', 'local.kind': 'Shell type', 'local.exited': 'Shell exited', 'menu.open': 'Open',
       'files.wslUnreachable': 'This path is not visible from the WSL distro',
       'settings.fontHint': 'Icons in ls/prompts (Nerd Font glyphs) need a Nerd Font installed; any "… Nerd Font" family in this list is used automatically.',
+      'ago.now': 'just now', 'ago.m': '{n} min ago', 'ago.h': '{n} h ago', 'ago.d': '{n} days ago', 'ago.mo': '{n} months ago', 'ago.y': '{n} years ago', 'hist.used': 'used {n} times',
       'files.name': 'Name', 'files.size': 'Size', 'files.modified': 'Modified', 'files.mode': 'Mode', 'tab.inactive': 'inactive', 'settings.theme.pick': 'Colour scheme',
     },
   };
