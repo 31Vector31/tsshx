@@ -31,18 +31,19 @@ window.App = (() => {
   };
 
   /** Open a terminal: in a new tab, or as a split of pane `from` (dir 'h' | 'v'). Returns the pane. */
-  app.openTerminal = async ({ hostId, entry, profile, from, dir }) => {
+  app.openTerminal = async ({ hostId, entry, profile, from, dir, before }) => {
     if (profile && !entry) entry = { name: profile.name, host: 'local', username: '', local: true };
     const pane = new TerminalTab({ hostId, entry, profile, settings: app.settings, callbacks: paneCallbacks });
     let group = from ? from.group : null;
     if (!group) { group = new TabGroup(app); app.tabs.push(group); $('#terminals').append(group.wrap); }
-    group.add(pane, from, dir);
+    group.add(pane, from, dir, before);
     activateTab(group.id);
     renderTabs();
     await pane.connect();
     return pane;
   };
-  app.split = (dir, from) => { from = from || app.activeTab(); if (!from) return; if (!dir) { const r = from.wrap.getBoundingClientRect(); dir = r.width > r.height * 1.5 ? 'h' : 'v'; } return app.openTerminal({ hostId: from.hostId, entry: from.entry, profile: from.profile, from, dir }); };
+  app.split = (dir, from, before) => { from = from || app.activeTab(); if (!from) return; if (!dir) { const r = from.wrap.getBoundingClientRect(); dir = r.width > r.height * 1.5 ? 'h' : 'v'; } return app.openTerminal({ hostId: from.hostId, entry: from.entry, profile: from.profile, from, dir, before }); };
+  const MOD = navigator.platform.startsWith('Mac') ? 'Cmd' : 'Ctrl';   // for shortcut hints
   app.dropGroup = (g) => { const idx = app.tabs.indexOf(g); if (idx < 0) return; app.tabs.splice(idx, 1); g.wrap.remove(); if (app.activeId === g.id) { const next = app.tabs[Math.min(idx, app.tabs.length - 1)]; activateTab(next ? next.id : null); } renderTabs(); };
   /** Move a pane out of its group into a new tab. */
   app.detachPane = (pane) => { const src = pane.group; if (!src || src.panes.length < 2) return; src.remove(pane); const g = new TabGroup(app); app.tabs.push(g); $('#terminals').append(g.wrap); g.add(pane); activateTab(g.id); };
@@ -122,8 +123,8 @@ window.App = (() => {
       el.addEventListener('dragstart', (e) => { e.dataTransfer.setData('text/plain', g.id); e.dataTransfer.effectAllowed = 'move'; TabGroup.startDrag('tab', g.id); });
       el.addEventListener('dragend', TabGroup.endDrag);
       el.addEventListener('contextmenu', (e) => { e.preventDefault(); activateTab(g.id); UI.ctxmenu(e.clientX, e.clientY, [
-        { label: t('pane.splitRight'), kbd: 'Ctrl+Shift+5', onClick: () => app.split('h') },
-        { label: t('pane.splitDown'), kbd: 'Ctrl+Shift+6', onClick: () => app.split('v') },
+        { label: t('pane.splitRight'), kbd: MOD + '+Shift+→', onClick: () => app.split('h') },
+        { label: t('pane.splitDown'), kbd: MOD + '+Shift+↓', onClick: () => app.split('v') },
         { label: t('tab.duplicate'), onClick: () => app.openTerminal({ hostId: p.hostId, entry: p.entry, profile: p.profile }) },
         '-',
         { label: t('menu.files'), onClick: () => p.local ? Files.openFor({ local: true, path: p.fsHome() }) : p.sessionId && Files.openFor({ sessionId: p.sessionId }), disabled: !p.sessionId },
@@ -427,6 +428,10 @@ window.App = (() => {
         case 'KeyD': e.preventDefault(); app.split(); return;
         case 'Digit5': e.preventDefault(); app.split('h'); return;
         case 'Digit6': e.preventDefault(); app.split('v'); return;
+        case 'ArrowRight': e.preventDefault(); app.split('h'); return;          // new pane on the right
+        case 'ArrowLeft': e.preventDefault(); app.split('h', null, true); return;
+        case 'ArrowDown': e.preventDefault(); app.split('v'); return;
+        case 'ArrowUp': e.preventDefault(); app.split('v', null, true); return;
         case 'Enter': e.preventDefault(); { const g = app.activeGroup(); if (g) g.toggleMaximize(); } return;
         case 'KeyN': e.preventDefault(); { const tb = app.activeTab(); if (tb) app.openTerminal({ hostId: tb.hostId, entry: tb.entry, profile: tb.profile }); } return;
         case 'KeyR': e.preventDefault(); if (!inModal || $('.hist-modal')) History.open(); return;
@@ -507,7 +512,7 @@ window.App = (() => {
     $('#btn-newtab').addEventListener('click', () => { const sel = Hosts.selectedId; if (sel) Hosts.connectSelected(); else $('#quick-connect').focus(); });
     $('#btn-jump').addEventListener('click', () => Jump.open());
     $('#btn-history').addEventListener('click', () => History.open());
-    $('#btn-split').addEventListener('click', (e) => { const r = e.currentTarget.getBoundingClientRect(); UI.ctxmenu(r.left, r.bottom + 2, [{ label: t('pane.splitRight'), kbd: 'Ctrl+Shift+5', onClick: () => app.split('h') }, { label: t('pane.splitDown'), kbd: 'Ctrl+Shift+6', onClick: () => app.split('v') }, '-', { label: t('pane.maximize'), kbd: 'Ctrl+Shift+Enter', onClick: () => { const g = app.activeGroup(); if (g) g.toggleMaximize(); } }]); });
+    $('#btn-split').addEventListener('click', (e) => { const r = e.currentTarget.getBoundingClientRect(); UI.ctxmenu(r.left, r.bottom + 2, [{ label: t('pane.splitRight'), kbd: MOD + '+Shift+→', onClick: () => app.split('h') }, { label: t('pane.splitDown'), kbd: MOD + '+Shift+↓', onClick: () => app.split('v') }, { label: t('pane.splitLeft'), kbd: MOD + '+Shift+←', onClick: () => app.split('h', null, true) }, { label: t('pane.splitUp'), kbd: MOD + '+Shift+↑', onClick: () => app.split('v', null, true) }, '-', { label: t('pane.maximize'), kbd: MOD + '+Shift+Enter', onClick: () => { const g = app.activeGroup(); if (g) g.toggleMaximize(); } }]); });
     $('#btn-files').addEventListener('click', () => Files.toggle());
     $('#btn-settings').addEventListener('click', openSettings);
     $('#btn-lock').addEventListener('click', lock);

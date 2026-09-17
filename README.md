@@ -17,7 +17,7 @@ npm run dist:linux # AppImage + deb   (dist:win â†’ nsis + portable, dist:mac â†
 - xterm.js with WebGL renderer (DOM fallback), 24-bit colour, Unicode 11 wide chars / emoji, 10k+ scrollback.
 - Tabs, search (Ctrl+Shift+F), clickable URLs, copy/paste (Ctrl+Shift+C / Ctrl+Shift+V, middle/right click).
 - Reconnect on `Enter` after a dropped session, `Ctrl+Scroll` / `Ctrl +`/`-` zoom.
-- Split panes inside a tab: `Ctrl+Shift+5` right, `Ctrl+Shift+6` down, `Ctrl+Shift+D` auto (also `Alt+Shift+=`/`-`), `Alt+arrows`
+- Split panes inside a tab: `Ctrl/Cmd+Shift+arrow` in that direction, `Ctrl+Shift+D` auto (also `Ctrl+Shift+5/6`, `Alt+Shift+=/-`), `Alt+arrows`
   move focus, `Ctrl+Shift+Enter` maximise/restore, `Ctrl+Shift+W` closes the pane. Mouse: split/maximise/close buttons in the
   pane header, drag a pane by its header onto the edge of another pane to re-dock it or onto the tab bar to make it a tab,
   drag a tab from the tab bar onto the edge of a pane to dock that whole tab beside it, drag tabs to reorder, drag dividers to resize. Each pane is its own SSH session.
@@ -74,7 +74,7 @@ load average, uptime) via one `/proc` read over SSH (sysctl/vm_stat on macOS hos
 | Ctrl+Shift+F | Search in terminal |
 | Ctrl+Shift+T | Focus quick connect |
 | Ctrl+Shift+N | Duplicate current session |
-| Ctrl+Shift+5 / 6, Ctrl+Shift+D | Split pane right / down / auto |
+| Ctrl/Cmd+Shift+arrows, Ctrl+Shift+D | Split pane in that direction / auto |
 | Alt+arrows, Ctrl+Shift+Enter | Move between panes, maximise pane |
 | Ctrl+Shift+W, Cmd+W (macOS) | Close pane / tab (Ctrl+W too outside the terminal, or inside if enabled in Settings) |
 | Ctrl+Tab / Ctrl+Shift+Tab, Alt+1..9 | Switch tabs |

@@ -108,7 +108,7 @@ function createWindow() {
   const material = !SAFE_MODE && process.platform === 'win32' && settings.winMaterial && settings.winMaterial !== 'none' ? settings.winMaterial : null;
   const frameOpts = {};
   if (integrated) {
-    if (process.platform === 'darwin') { frameOpts.titleBarStyle = 'hiddenInset'; frameOpts.trafficLightPosition = { x: 12, y: 9 }; }
+    if (process.platform === 'darwin') { frameOpts.titleBarStyle = 'hiddenInset'; frameOpts.trafficLightPosition = { x: 12, y: 9 }; frameOpts.titleBarOverlay = true; }   // overlay=true exposes the traffic-light geometry to CSS env()
     else { frameOpts.titleBarStyle = 'hidden'; frameOpts.titleBarOverlay = { color: settings.chromeBg, symbolColor: settings.chromeFg, height: 32 }; }
   }
   if (material) { frameOpts.backgroundMaterial = material; }   // Windows 11 Mica / Acrylic; needs a transparent page background
