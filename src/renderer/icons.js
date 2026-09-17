@@ -38,6 +38,9 @@ window.Icon = (() => {
     clock: 'M8 1.5a6.5 6.5 0 1 1 0 13 6.5 6.5 0 0 1 0-13zM8 4.5V8l2.5 1.5',
     pin: 'M9.5 2l4.5 4.5-2 .5-2.5 2.5.5 3L8.5 11 5 14.5l-.5-.5L8 10.5 6.5 9l3-.5.5-2z',
     stop: 'M3.5 3.5h9v9h-9z',
+    splitH: 'M2 3h12v10H2zM8 3v10',
+    splitV: 'M2 3h12v10H2zM2 8h12',
+    maximize: 'M2.5 2.5h11v11h-11zM5 5h6v6H5z',
   };
   const svg = (name, size = 16) => {
     const s = document.createElementNS('http://www.w3.org/2000/svg', 'svg');

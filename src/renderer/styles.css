@@ -92,9 +92,19 @@ kbd { font: 11px var(--mono); color: var(--fg2); border: 1px solid var(--border)
 .divider.h::after { width: 7px; height: 100%; margin-left: -3px; } .divider.v::after { height: 7px; width: 100%; margin-top: -3px; }
 .divider:hover { background: var(--fg2); }
 .drag-overlay { position: fixed; inset: 0; z-index: 90; } .drag-overlay.h { cursor: col-resize; } .drag-overlay.v { cursor: row-resize; }
-.tab-group.multi .term-wrap { box-shadow: inset 0 1px 0 var(--border); }
-.tab-group.multi .term-wrap.active { box-shadow: inset 0 1px 0 var(--fg2); }
-.tab-group.max .term-wrap:not(.active), .tab-group.max .divider { display: none; }
+.pane-box { display: flex; flex-direction: column; flex: 1 1 0%; min-width: 0; min-height: 0; position: relative; }
+.pane-head { display: none; align-items: center; gap: 4px; height: 22px; padding: 0 2px 0 6px; background: var(--bg2); border-bottom: 1px solid var(--border); color: var(--fg2); font-size: 11px; user-select: none; -webkit-app-region: no-drag; }
+.pane-head .grip { display: flex; cursor: grab; } .pane-head .pt { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--mono); }
+.pane-head .icon-btn { width: 22px; height: 20px; visibility: hidden; }
+.pane-box:hover .pane-head .icon-btn, .pane-box.active .pane-head .icon-btn { visibility: visible; }
+.tab-group.multi .pane-head { display: flex; }
+.tab-group.multi .pane-box.active .pane-head { color: var(--fg); }
+.tab-group.max .pane-box:not(.active), .tab-group.max .divider { display: none; }
+.drop-hint { position: absolute; background: color-mix(in srgb, var(--accent) 25%, transparent); border: 1px solid var(--accent); pointer-events: none; z-index: 3; }
+.drop-hint.left { left: 0; top: 0; bottom: 0; width: 50%; } .drop-hint.right { right: 0; top: 0; bottom: 0; width: 50%; }
+.drop-hint.top { left: 0; right: 0; top: 0; height: 50%; } .drop-hint.bottom { left: 0; right: 0; bottom: 0; height: 50%; }
+body.pane-dragging .xterm { pointer-events: none; }
+#tabs.drop { box-shadow: inset 0 0 0 1px var(--accent); }
 .term-wrap { position: relative; flex: 1 1 0%; min-width: 0; min-height: 0; overflow: hidden; padding: 10px; }
 .term-wrap[hidden] { display: none; }
 .term-wrap .xterm { height: 100%; }

@@ -17,8 +17,10 @@ npm run dist:linux # AppImage + deb   (dist:win â†’ nsis + portable, dist:mac â†
 - xterm.js with WebGL renderer (DOM fallback), 24-bit colour, Unicode 11 wide chars / emoji, 10k+ scrollback.
 - Tabs, search (Ctrl+Shift+F), clickable URLs, copy/paste (Ctrl+Shift+C / Ctrl+Shift+V, middle/right click).
 - Reconnect on `Enter` after a dropped session, `Ctrl+Scroll` / `Ctrl +`/`-` zoom.
-- Split panes inside a tab: `Ctrl+Shift+D` (auto), `Alt+Shift+=` right, `Alt+Shift+-` down, `Alt+arrows` move focus,
-  `Ctrl+Shift+Enter` maximise/restore, `Ctrl+Shift+W` closes the pane; dividers drag; each pane is its own SSH session.
+- Split panes inside a tab: `Ctrl+Shift+5` right, `Ctrl+Shift+6` down, `Ctrl+Shift+D` auto (also `Alt+Shift+=`/`-`), `Alt+arrows`
+  move focus, `Ctrl+Shift+Enter` maximise/restore, `Ctrl+Shift+W` closes the pane. Mouse: split/maximise/close buttons in the
+  pane header, drag a pane by its header onto the edge of another pane to re-dock it or onto the tab bar to make it a tab,
+  drag tabs to reorder, drag dividers to resize. Each pane is its own SSH session.
 - Appearance: 12 built-in colour schemes, import of xterm / Windows Terminal JSON schemes,
   wallpaper (any image) with dim/blur/fit, terminal opacity, padding, font, cursor; the UI is tinted from the scheme.
 - Window: OS frame with Window Controls Overlay (tabs live in the title bar, native caption buttons, Win11 snap layouts and
@@ -61,7 +63,7 @@ npm run dist:linux # AppImage + deb   (dist:win â†’ nsis + portable, dist:mac â†
 | Ctrl+Shift+F | Search in terminal |
 | Ctrl+Shift+T | Focus quick connect |
 | Ctrl+Shift+N | Duplicate current session |
-| Ctrl+Shift+D, Alt+Shift+= / - | Split pane (auto / right / down) |
+| Ctrl+Shift+5 / 6, Ctrl+Shift+D | Split pane right / down / auto |
 | Alt+arrows, Ctrl+Shift+Enter | Move between panes, maximise pane |
 | Ctrl+Shift+W | Close pane / tab |
 | Ctrl+Tab / Ctrl+Shift+Tab, Alt+1..9 | Switch tabs |

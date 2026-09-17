@@ -92,7 +92,7 @@ window.TerminalTab = (() => {
       if (e.ctrlKey && e.code === 'Insert') { this.copy(); return false; }
       if (e.shiftKey && e.code === 'Insert') { this.paste(); return false; }
       // let the app handle global shortcuts
-      if ((e.ctrlKey || e.metaKey) && (ctrlShift || ['KeyP', 'Tab', 'PageUp', 'PageDown', 'Equal', 'Minus', 'Digit0'].includes(e.code))) return false;
+      if ((e.ctrlKey || e.metaKey) && (ctrlShift || ['KeyP', 'Tab', 'PageUp', 'PageDown', 'Equal', 'Minus', 'Digit0', 'Digit5', 'Digit6'].includes(e.code))) return false;
       if (e.altKey && /^Digit[1-9]$/.test(e.code)) return false;
       if (e.altKey && e.shiftKey && (e.code === 'Equal' || e.code === 'Minus')) return false;
       if (e.altKey && !e.shiftKey && !e.ctrlKey && /^Arrow/.test(e.code)) return false;

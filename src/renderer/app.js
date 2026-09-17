@@ -41,7 +41,10 @@ window.App = (() => {
     await pane.connect();
     return pane;
   };
-  app.split = (dir) => { const from = app.activeTab(); if (!from) return; if (!dir) { const r = from.wrap.getBoundingClientRect(); dir = r.width > r.height * 1.5 ? 'h' : 'v'; } return app.openTerminal({ hostId: from.hostId, entry: from.entry, from, dir }); };
+  app.split = (dir, from) => { from = from || app.activeTab(); if (!from) return; if (!dir) { const r = from.wrap.getBoundingClientRect(); dir = r.width > r.height * 1.5 ? 'h' : 'v'; } return app.openTerminal({ hostId: from.hostId, entry: from.entry, from, dir }); };
+  app.dropGroup = (g) => { const idx = app.tabs.indexOf(g); if (idx < 0) return; app.tabs.splice(idx, 1); g.wrap.remove(); if (app.activeId === g.id) { const next = app.tabs[Math.min(idx, app.tabs.length - 1)]; activateTab(next ? next.id : null); } renderTabs(); };
+  /** Move a pane out of its group into a new tab. */
+  app.detachPane = (pane) => { const src = pane.group; if (!src || src.panes.length < 2) return; src.remove(pane); const g = new TabGroup(app); app.tabs.push(g); $('#terminals').append(g.wrap); g.add(pane); activateTab(g.id); };
   app.focusNeighbor = (direction) => { const g = app.activeGroup(); const p = app.activeTab(); if (!g || !p) return; const n = g.neighbor(p, direction); if (n) g.focus(n); };
 
   function activateTab(id) {
@@ -76,6 +79,24 @@ window.App = (() => {
 
   function renderTabs() {
     const box = $('#tabs'); box.innerHTML = '';
+    if (!box._dnd) {   // drop a pane on the tab bar → its own tab; drag tabs to reorder
+      box._dnd = true;
+      box.addEventListener('dragover', (e) => { const ts = [...e.dataTransfer.types]; if (ts.includes(TabGroup.DND) || ts.includes('application/x-terhui-tab')) { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; box.classList.add('drop'); } });
+      box.addEventListener('dragleave', (e) => { if (!box.contains(e.relatedTarget)) box.classList.remove('drop'); });
+      box.addEventListener('drop', (e) => {
+        box.classList.remove('drop');
+        const pid = e.dataTransfer.getData(TabGroup.DND);
+        if (pid) { e.preventDefault(); const p = TabGroup.paneById(pid); if (p) app.detachPane(p); return; }
+        const gid = e.dataTransfer.getData('application/x-terhui-tab');
+        if (gid) {
+          e.preventDefault();
+          const from = app.tabs.findIndex(g => g.id === gid); if (from < 0) return;
+          const over = e.target.closest('.tab'); let to = app.tabs.length - 1;
+          if (over) { const r = over.getBoundingClientRect(); to = app.tabs.findIndex(g => g.id === over.dataset.id) + (e.clientX > r.left + r.width / 2 ? 1 : 0); }
+          const [g] = app.tabs.splice(from, 1); if (to > from) to--; app.tabs.splice(Math.max(0, Math.min(to, app.tabs.length)), 0, g); renderTabs();
+        }
+      });
+    }
     for (const g of app.tabs) {
       const p = g.activePane || g.panes[0]; if (!p) continue;
       const hh = p.hostId ? Hosts.byId(p.hostId) : null;
@@ -84,9 +105,11 @@ window.App = (() => {
         hh && hh.color ? h('span', { class: 'hc', style: { background: hh.color } }) : null,
         h('span', { class: 'title' }, g.title + (p.status === 'connecting' ? '…' : '')),
         h('span', { class: 'close', onClick: (e) => { e.stopPropagation(); closeTab(g.id); } }, Icon('close', 12)));
+      el.draggable = true;
+      el.addEventListener('dragstart', (e) => { e.dataTransfer.setData('application/x-terhui-tab', g.id); e.dataTransfer.effectAllowed = 'move'; });
       el.addEventListener('contextmenu', (e) => { e.preventDefault(); activateTab(g.id); UI.ctxmenu(e.clientX, e.clientY, [
-        { label: t('pane.splitRight'), kbd: 'Alt+Shift+=', onClick: () => app.split('h') },
-        { label: t('pane.splitDown'), kbd: 'Alt+Shift+-', onClick: () => app.split('v') },
+        { label: t('pane.splitRight'), kbd: 'Ctrl+Shift+5', onClick: () => app.split('h') },
+        { label: t('pane.splitDown'), kbd: 'Ctrl+Shift+6', onClick: () => app.split('v') },
         { label: t('tab.duplicate'), onClick: () => app.openTerminal({ hostId: p.hostId, entry: p.entry }) },
         '-',
         { label: t('menu.files'), onClick: () => p.sessionId && Files.openFor({ sessionId: p.sessionId }), disabled: !p.sessionId },
@@ -105,6 +128,7 @@ window.App = (() => {
     const tb = app.activeTab(); if (!tb) { $('#st-index').textContent = ''; return; }
     try { const info = await window.api.index.info(Jump.indexKey(tb)); $('#st-index').textContent = info.exists ? t('st.index', { n: info.count }) : t('st.noindex'); } catch (_) { $('#st-index').textContent = ''; }
   };
+  app.renderTabs = renderTabs;
   app.zoom = (d) => { const fs = Math.max(6, Math.min(40, app.settings.fontSize + d)); applySettings({ fontSize: fs }); };
 
   // ---------- files / index helpers (used by Hosts menu) ----------
@@ -352,6 +376,8 @@ window.App = (() => {
         case 'KeyT': e.preventDefault(); if (!inModal) { $('#quick-connect').focus(); } return;
         case 'KeyW': e.preventDefault(); { const p = app.activeTab(); if (p) closePane(p); } return;
         case 'KeyD': e.preventDefault(); app.split(); return;
+        case 'Digit5': e.preventDefault(); app.split('h'); return;
+        case 'Digit6': e.preventDefault(); app.split('v'); return;
         case 'Enter': e.preventDefault(); { const g = app.activeGroup(); if (g) g.toggleMaximize(); } return;
         case 'KeyN': e.preventDefault(); { const tb = app.activeTab(); if (tb) app.openTerminal({ hostId: tb.hostId, entry: tb.entry }); } return;
         case 'KeyR': e.preventDefault(); if (!inModal || $('.hist-modal')) History.open(); return;
@@ -425,6 +451,7 @@ window.App = (() => {
     $('#btn-newtab').addEventListener('click', () => { const sel = Hosts.selectedId; if (sel) Hosts.connectSelected(); else $('#quick-connect').focus(); });
     $('#btn-jump').addEventListener('click', () => Jump.open());
     $('#btn-history').addEventListener('click', () => History.open());
+    $('#btn-split').addEventListener('click', (e) => { const r = e.currentTarget.getBoundingClientRect(); UI.ctxmenu(r.left, r.bottom + 2, [{ label: t('pane.splitRight'), kbd: 'Ctrl+Shift+5', onClick: () => app.split('h') }, { label: t('pane.splitDown'), kbd: 'Ctrl+Shift+6', onClick: () => app.split('v') }, '-', { label: t('pane.maximize'), kbd: 'Ctrl+Shift+Enter', onClick: () => { const g = app.activeGroup(); if (g) g.toggleMaximize(); } }]); });
     $('#btn-files').addEventListener('click', () => Files.toggle());
     $('#btn-settings').addEventListener('click', openSettings);
     $('#btn-lock').addEventListener('click', lock);
