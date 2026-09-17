@@ -106,10 +106,11 @@ window.Hosts = (() => {
       h('label', null, t('local.args')), inp('args', (e.args || []).join(' ')),
       h('label', null, t('local.cwd')), inp('cwd', e.cwd || '', { placeholder: '~' }),
       h('label', null, t('local.kind')), f.kind,
+      h('label', null, 'WSL distro'), inp('wsl', e.wsl || '', { placeholder: 'Ubuntu (for wsl.exe profiles: enables the distro file browser)' }),
       h('label', null, t('host.color')), f.color);
     UI.modal({ title: t('local.edit'), body: form, width: '520px', buttons: [{ label: t('cancel'), value: null }, { label: t('save'), primary: true, onClick: async () => {
       if (!f.command.value.trim()) { UI.toast(t('host.required'), 'warn'); return UI.KEEP_OPEN; }
-      const out = { ...e, id: e.id || 'local-' + Date.now(), name: f.name.value.trim() || f.command.value.trim(), command: f.command.value.trim(), args: f.args.value.trim() ? f.args.value.trim().split(/\s+/) : [], cwd: f.cwd.value.trim(), kind: f.kind.value, color: f.color.value };
+      const out = { ...e, id: e.id || 'local-' + Date.now(), name: f.name.value.trim() || f.command.value.trim(), command: f.command.value.trim(), args: f.args.value.trim() ? f.args.value.trim().split(/\s+/) : [], cwd: f.cwd.value.trim(), kind: f.kind.value, wsl: f.wsl.value.trim(), color: f.color.value };
       const list = app.profiles.slice(); const i = list.findIndex(x => x.id === out.id); if (i >= 0) list[i] = out; else list.push(out);
       app.profiles = await window.api.profiles.save(list); render(); return true;
     } }] });

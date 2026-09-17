@@ -29,7 +29,7 @@ window.Files = (() => {
       const tb = (icon, title, fn) => h('button', { class: 'icon-btn', title, onClick: fn }, Icon(icon));
       const sep = () => h('span', { class: 'sep' });
       this.btnFollow = tb('link', t('files.follow'), () => { this.follow = !this.follow; this.btnFollow.classList.toggle('on', this.follow); if (this.follow) { const tab = app.activeTab(); if (tab && tab.cwd) this.load(tab.cwd); } });
-      this.btnCd = tb('terminal', t('files.cdTerm'), () => { const tab = app.activeTab(); if (tab && (this.fsId === 'sftp:' + tab.sessionId || (tab.local && this.fsId === 'local'))) tab.cd(this.path); });
+      this.btnCd = tb('terminal', t('files.cdTerm'), () => { const tab = app.activeTab(); if (!tab) return; if (this.fsId === 'sftp:' + tab.sessionId) tab.cd(this.path); else if (tab.local && this.fsId === 'local') { const sp = tab.toShellPath(this.path); if (sp) tab.cd(sp); else UI.toast(t('files.wslUnreachable'), 'warn'); } });
       this.btnHidden = tb('eye', t('files.hidden') + ' (Ctrl+H)', () => { showHidden = !showHidden; localStorage.setItem('terhui.showHidden', showHidden ? '1' : '0'); panes.forEach(p => { p.btnHidden.classList.toggle('on', showHidden); p.render(); }); });
       this.btnHidden.classList.toggle('on', showHidden);
       this.tools = h('div', { class: 'pane-tools' },
@@ -237,7 +237,7 @@ window.Files = (() => {
       UI.ctxmenu(x, y, [
         one ? { label: t('files.view'), kbd: 'Enter', onClick: () => this.activate(one) } : null,
         one && one.type !== 'd' ? { label: local ? 'Edit' : t('files.view'), kbd: 'F4', onClick: () => editFile(this.fsId, one.path, () => this.load(this.path)) } : null,
-        isTabSftp && one ? { label: t('files.cdTerm'), onClick: () => tab.cd(one.type === 'd' ? one.path : this.path) } : null,
+        isTabSftp && one ? { label: t('files.cdTerm'), onClick: () => { const p = one.type === 'd' ? one.path : this.path; const sp = tab.local ? tab.toShellPath(p) : p; if (sp) tab.cd(sp); else UI.toast(t('files.wslUnreachable'), 'warn'); } } : null,
         { label: t('files.copyTo') + ' ' + panes[1 - this.idx].label, kbd: 'F5', onClick: () => this.copyToOther(), disabled: !sel.length },
         !local ? { label: t('files.download'), onClick: () => this.download(), disabled: !sel.length } : null,
         !local ? { label: t('files.upload'), onClick: () => this.upload(false) } : null,
@@ -333,7 +333,7 @@ window.Files = (() => {
     if (sessionId) { const fsId = 'sftp:' + sessionId; if (panes[1].fsId !== fsId || path) await panes[1].setSource(fsId, path); }
     panes[1].list.focus(); setActive(1);
   }
-  function onCwd(tab, path) { for (const p of panes) if (p.follow && visible() && (tab.local ? p.fsId === 'local' : p.fsId === 'sftp:' + tab.sessionId)) p.load(path); }
+  function onCwd(tab, path) { for (const p of panes) if (p.follow && visible() && (tab.local ? p.fsId === 'local' : p.fsId === 'sftp:' + tab.sessionId)) p.load(tab.local ? tab.toFsPath(path) : path); }
   function onSessionsChanged() { refreshSources(); }
   function focus() { panes[activePane].list.focus(); }
   return { init, show, hide, toggle, openFor, onCwd, onSessionsChanged, refreshSources, visible, focus, editFile, get panes() { return panes; } };

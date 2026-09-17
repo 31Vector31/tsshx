@@ -124,7 +124,7 @@ window.App = (() => {
         { label: t('pane.splitDown'), kbd: 'Ctrl+Shift+6', onClick: () => app.split('v') },
         { label: t('tab.duplicate'), onClick: () => app.openTerminal({ hostId: p.hostId, entry: p.entry, profile: p.profile }) },
         '-',
-        { label: t('menu.files'), onClick: () => p.local ? Files.openFor({ local: true, path: p.cwd || p.remoteHome }) : p.sessionId && Files.openFor({ sessionId: p.sessionId }), disabled: !p.sessionId },
+        { label: t('menu.files'), onClick: () => p.local ? Files.openFor({ local: true, path: p.fsHome() }) : p.sessionId && Files.openFor({ sessionId: p.sessionId }), disabled: !p.sessionId },
         { label: t('tab.reconnect'), onClick: () => p.reconnect(), disabled: p.status === 'connected' },
         '-', { label: t('pane.close'), kbd: 'Ctrl+Shift+W', onClick: () => closePane(p), disabled: g.panes.length < 2 },
         { label: t('close'), onClick: () => closeTab(g.id) }]); });

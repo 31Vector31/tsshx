@@ -27,7 +27,7 @@ function detectProfiles() {
     const cmd = path.join(process.env.SystemRoot || 'C:\\Windows', 'System32', 'cmd.exe'); if (exists(cmd)) add({ name: 'Command Prompt', command: cmd, args: [], kind: 'cmd' });
     try {
       const raw = execFileSync('wsl.exe', ['-l', '-q'], { encoding: 'utf16le', windowsHide: true, timeout: 5000 });
-      for (const line of raw.split(/\r?\n/)) { const d = line.replace(/\0/g, '').trim(); if (d) add({ name: 'WSL: ' + d, command: 'wsl.exe', args: ['-d', d], kind: 'posix' }); }
+      for (const line of raw.split(/\r?\n/)) { const d = line.replace(/\0/g, '').trim(); if (d) add({ name: 'WSL: ' + d, command: 'wsl.exe', args: ['-d', d], kind: 'posix', wsl: d }); }
     } catch (_) {}
     for (const gb of [path.join(process.env.ProgramFiles || 'C:\\Program Files', 'Git', 'bin', 'bash.exe'), path.join(process.env.LOCALAPPDATA || '', 'Programs', 'Git', 'bin', 'bash.exe')]) if (exists(gb)) { add({ name: 'Git Bash', command: gb, args: ['--login', '-i'], kind: 'posix' }); break; }
   } else {

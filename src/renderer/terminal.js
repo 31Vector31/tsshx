@@ -205,6 +205,12 @@ window.TerminalTab = (() => {
       if (nl + 1 < all.length) this.term.write(all.subarray(nl + 1));
     }
 
+    /** Shell-side path → path for the local file backend (identity except WSL). */
+    toFsPath(p) { return (this.local && this.profile.wsl && p) ? WslPath.toWindows(this.profile.wsl, p) : p; }
+    /** Local file backend path → shell-side path (null if the WSL distro cannot see it). */
+    toShellPath(p) { return (this.local && this.profile.wsl) ? WslPath.toLinux(this.profile.wsl, p) : p; }
+    /** Where the file browser should start for this pane. */
+    fsHome() { if (this.local && this.profile.wsl) return this.toFsPath(this.cwd) || WslPath.rootOf(this.profile.wsl); return this.cwd || this.remoteHome || null; }
     _send(data) { if (this.local) window.api.pty.write(this.sessionId, data); else window.api.ssh.write(this.sessionId, data); }
     _resize(cols, rows) { if (this.local) window.api.pty.resize(this.sessionId, cols, rows); else window.api.ssh.resize(this.sessionId, cols, rows); }
 

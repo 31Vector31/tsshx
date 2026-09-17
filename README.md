@@ -31,7 +31,8 @@ npm run dist:linux # AppImage + deb   (dist:win → nsis + portable, dist:mac �
 - Section "Local" in the sidebar: auto-detected shells (Windows: PowerShell 7, Windows PowerShell, cmd, every WSL distro,
   Git Bash; macOS/Linux: login shell, zsh, bash, fish), editable profiles (command, args, start dir, colour). node-pty
   (ConPTY on Windows). Local tabs get the same splits, history palette (bash/zsh/fish/PSReadLine files), directory index and
-  file panel; shell integration works for bash/zsh (also inside WSL).
+  file panel; shell integration works for bash/zsh (also inside WSL). WSL tabs browse the distro's own file
+  system through `\\wsl.localhost\<Distro>\` with paths mapped both ways (`/mnt/c` ↔ `C:\`).
 
 **Credential vault**
 - `vault.json` in the user-data dir, AES-256-GCM, key from master password via scrypt (N=2^15).
