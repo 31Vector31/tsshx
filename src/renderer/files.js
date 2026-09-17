@@ -32,7 +32,7 @@ window.Files = (() => {
       this.pathInput = h('input', { class: 'pane-path', type: 'text', spellcheck: 'false', onKeydown: (e) => { if (e.key === 'Enter') this.load(this.pathInput.value.trim()); if (e.key === 'Escape') { this.pathInput.value = this.path; this.list.focus(); } } });
       const tb = (icon, title, fn) => h('button', { class: 'icon-btn', title, onClick: fn }, Icon(icon));
       const sep = () => h('span', { class: 'sep' });
-      this.btnFollow = tb('link', t('files.follow'), () => { this.follow = !this.follow; this.btnFollow.classList.toggle('on', this.follow); if (this.follow) { const tab = app.activeTab(); if (tab && tab.cwd) this.load(tab.cwd); } });
+      this.btnFollow = tb('link', t('files.follow'), () => { this.follow = !this.follow; this.btnFollow.classList.toggle('on', this.follow); if (this.follow) applyFollow(this, app.activeTab()); });
       this.btnCd = tb('terminal', t('files.cdTerm'), () => { const tab = app.activeTab(); if (!tab) return; if (this.fsId === 'sftp:' + tab.sessionId) tab.cd(this.path); else if (tab.local && this.fsId === 'local') { const sp = tab.toShellPath(this.path); if (sp) tab.cd(sp); else UI.toast(t('files.wslUnreachable'), 'warn'); } });
       this.btnHidden = tb('eye', t('files.hidden') + ' (Ctrl+H)', () => { showHidden = !showHidden; localStorage.setItem('terhui.showHidden', showHidden ? '1' : '0'); panes.forEach(p => { p.btnHidden.classList.toggle('on', showHidden); p.render(); }); });
       this.btnHidden.classList.toggle('on', showHidden);
@@ -90,11 +90,11 @@ window.Files = (() => {
         if (this.fsId !== 'local') { this.items = []; this.selected.clear(); this.render(t('files.noremote')); }
       }
       this.srcSel.value = srcs.some(s => s.id === cur) ? cur : this.fsId;
-      this.btnFollow.hidden = this.btnCd.hidden = !(this.fsId.startsWith('sftp:') || (this.fsId === 'local' && app.activeTab() && app.activeTab().local));
+      this.btnFollow.hidden = this.btnCd.hidden = !app.activeTab();
     }
     async setSource(fsId, startPath) {
       this.fsId = fsId; this.srcSel.value = fsId; this.label = (this.sources().find(s => s.id === fsId) || {}).label || fsId;
-      this.btnFollow.hidden = this.btnCd.hidden = !(fsId.startsWith('sftp:') || (fsId === 'local' && app.activeTab() && app.activeTab().local));
+      this.btnFollow.hidden = this.btnCd.hidden = !app.activeTab();
       this.selected.clear();
       let p = startPath;
       if (!p) {
@@ -324,8 +324,19 @@ window.Files = (() => {
   function show() { $('#files').hidden = false; $('#files-resizer').hidden = false; refreshSources(); if (!panes[0].path) panes[0].setSource('local'); app.settings.filePanelOpen = true; window.api.settings.set({ filePanelOpen: true }); app.fitActive(); syncToTab(app.activeTab(), true); }
   /** Point the remote pane at the active tab's file system (SFTP for SSH, the distro for WSL, local cwd otherwise). */
   let syncedTab = null;
+  // "Follow terminal" is bound to whichever pane is active, not to a session: switching panes (even of the same
+  // host) re-targets the file pane, and every cd in the active terminal is mirrored.
+  function followTarget(tab) { return tab.local ? { fsId: 'local', path: tab.toFsPath(tab.cwd) || tab.fsHome() } : { fsId: 'sftp:' + tab.sessionId, path: tab.cwd }; }
+  async function applyFollow(p, tab) {
+    if (!tab || !tab.sessionId || tab.status !== 'connected' || !visible()) return;
+    const { fsId, path } = followTarget(tab);
+    if (p.fsId !== fsId) await p.setSource(fsId, path || undefined);
+    else if (path && path !== p.path) await p.load(path);
+  }
   function syncToTab(tab, force) {
     if (!visible() || !tab || !tab.sessionId || tab.status !== 'connected') return;
+    for (const p of panes) if (p.follow) applyFollow(p, tab);
+    if (panes.some(p => p.follow && p.idx === 1)) { syncedTab = tab.id; return; }
     if (!force && syncedTab === tab.id) return;
     syncedTab = tab.id;
     if (tab.local) { const target = tab.fsHome(); if (panes[1].fsId !== 'local' || (target && !samePrefix(panes[1].path, tab))) panes[1].setSource('local', target || undefined); }
@@ -348,7 +359,7 @@ window.Files = (() => {
     if (sessionId) { const fsId = 'sftp:' + sessionId; if (panes[1].fsId !== fsId || path) await panes[1].setSource(fsId, path); }
     panes[1].list.focus(); setActive(1);
   }
-  function onCwd(tab, path) { for (const p of panes) if (p.follow && visible() && (tab.local ? p.fsId === 'local' : p.fsId === 'sftp:' + tab.sessionId)) p.load(tab.local ? tab.toFsPath(path) : path); }
+  function onCwd(tab) { if (tab !== app.activeTab()) return; for (const p of panes) if (p.follow) applyFollow(p, tab); }
   function onSessionsChanged() { refreshSources(); }
   function focus() { panes[activePane].list.focus(); }
   return { init, show, hide, toggle, openFor, onCwd, onSessionsChanged, refreshSources, visible, focus, editFile, syncToTab, get panes() { return panes; } };

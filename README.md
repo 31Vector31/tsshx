@@ -47,7 +47,7 @@ npm run dist:linux # AppImage + deb   (dist:win â†’ nsis + portable, dist:mac â†
 - Copy between any two panes (F5) incl. recursive directories, background transfer queue with progress and cancel,
   mkdir (F7), new file, rename (F6), delete (F8), chmod, hidden files, type-to-filter, sort, drag & drop
   (between panes and from the OS), built-in text editor (Ctrl+S), `cd` the terminal to the current folder,
-  "follow terminal" (tracks the shell cwd via window title / OSC 7).
+  "follow terminal" mirrors the cwd of whichever pane is active (OSC 7 from shell integration), across panes and tabs.
 
 **Directory index (Ctrl+P)**
 - Builds a list of all directories (optionally files) on the host with one `find` over the SSH session
