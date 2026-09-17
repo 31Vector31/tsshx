@@ -19,7 +19,7 @@ window.App = (() => {
   app.sessionsForHost = (hostId) => app.panes().filter(x => x.hostId === hostId && x.status === 'connected');
   app.activeGroup = () => app.tabs.find(g => g.id === app.activeId) || null;
   app.activeTab = () => { const g = app.activeGroup(); return g ? (g.activePane || g.panes[0] || null) : null; };
-  app.onPaneFocus = () => { updateStatus(); app.updateIndexStatus(); };
+  app.onPaneFocus = () => { updateStatus(); app.updateIndexStatus(); renderTabs(); };
 
   const paneCallbacks = {
     onStatus: (tb, st) => { renderTabs(); updateStatus(); Files.onSessionsChanged(); Hosts.render(); if (st === 'connected' && Files.visible() && Files.panes[1].fsId === 'local' && Files.panes[1].path === '') Files.openFor({ sessionId: tb.sessionId }); },
@@ -102,10 +102,20 @@ window.App = (() => {
       const p = g.activePane || g.panes[0]; if (!p) continue;
       const hh = p.hostId ? Hosts.byId(p.hostId) : null;
       const inactive = g.panes.every(x => x.status !== 'connected' && x.status !== 'connecting');
-      const el = h('div', { class: 'tab' + (g.id === app.activeId ? ' active' : '') + (inactive ? ' inactive' : ''), dataset: { id: g.id }, title: `${p.entry.username || ''}@${p.entry.host}:${p.entry.port || 22}${inactive ? ' (' + t('tab.inactive') + ')' : ''}`, onClick: () => activateTab(g.id), onAuxclick: (e) => { if (e.button === 1) closeTab(g.id); } },
-        hh && hh.color ? h('span', { class: 'hc', style: { background: hh.color } }) : null,
-        h('span', { class: 'title' }, g.title + (p.status === 'connecting' ? '…' : '')),
-        h('span', { class: 'close', onClick: (e) => { e.stopPropagation(); closeTab(g.id); } }, Icon('close', 12)));
+      const split = g.panes.length > 1;
+      // Split tabs render one segment per pane (like Chrome's split view): click a segment to focus that pane.
+      const segs = split ? g.panes.map(pp => {
+        const ph = pp.hostId ? Hosts.byId(pp.hostId) : null;
+        return h('span', { class: 'seg' + (pp === g.activePane ? ' cur' : '') + (pp.status !== 'connected' && pp.status !== 'connecting' ? ' dead' : ''), title: `${pp.entry.username || ''}@${pp.entry.host}:${pp.entry.port || 22}`,
+          onClick: (e) => { e.stopPropagation(); activateTab(g.id); g.focus(pp); } },
+          ph && ph.color ? h('span', { class: 'sc', style: { background: ph.color } }) : null,
+          h('span', { class: 'title' }, pp.title + (pp.status === 'connecting' ? '…' : '')),
+          h('span', { class: 'close', title: t('pane.close'), onClick: (e) => { e.stopPropagation(); closePane(pp); } }, Icon('close', 11)));
+      }) : [h('span', { class: 'title' }, p.title + (p.status === 'connecting' ? '…' : ''))];
+      const el = h('div', { class: 'tab' + (g.id === app.activeId ? ' active' : '') + (inactive ? ' inactive' : '') + (split ? ' split' : ''), dataset: { id: g.id }, title: split ? '' : `${p.entry.username || ''}@${p.entry.host}:${p.entry.port || 22}${inactive ? ' (' + t('tab.inactive') + ')' : ''}`, onClick: () => activateTab(g.id), onAuxclick: (e) => { if (e.button === 1) closeTab(g.id); } },
+        !split && hh && hh.color ? h('span', { class: 'hc', style: { background: hh.color } }) : null,
+        ...segs,
+        h('span', { class: 'close tab-close', title: t('close'), onClick: (e) => { e.stopPropagation(); closeTab(g.id); } }, Icon('close', 12)));
       el.draggable = true;
       el.addEventListener('dragstart', (e) => { e.dataTransfer.setData('text/plain', g.id); e.dataTransfer.effectAllowed = 'move'; TabGroup.startDrag('tab', g.id); });
       el.addEventListener('dragend', TabGroup.endDrag);
