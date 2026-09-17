@@ -45,10 +45,15 @@ window.Files = (() => {
       this.list.addEventListener('keydown', (e) => this._key(e));
       this.list.addEventListener('mousedown', () => setActive(this.idx));
       this.list.addEventListener('contextmenu', (e) => { e.preventDefault(); const tr = e.target.closest('tr[data-i]'); if (tr) { const i = +tr.dataset.i; if (!this.selected.has(this.visible[i].name)) { this.selected.clear(); this.selected.add(this.visible[i].name); } this.cursor = i; this.render(); } this.menu(e.clientX, e.clientY); });
-      this.list.addEventListener('dblclick', (e) => { const tr = e.target.closest('tr[data-i]'); if (tr) this.activate(this.visible[+tr.dataset.i]); });
+      // Rows are re-rendered on click, which breaks the native dblclick event (its second click lands on a new node),
+      // so double-click is detected by hand: same row within 400 ms.
+      let lastClick = { i: -1, at: 0 };
       this.list.addEventListener('click', (e) => {
         const tr = e.target.closest('tr[data-i]'); if (!tr) { this.selected.clear(); this.render(); return; }
         const i = +tr.dataset.i; const it = this.visible[i];
+        const now = Date.now();
+        if (!e.ctrlKey && !e.metaKey && !e.shiftKey && lastClick.i === i && now - lastClick.at < 400) { lastClick = { i: -1, at: 0 }; this.activate(it); return; }
+        lastClick = { i, at: now };
         if (e.ctrlKey || e.metaKey) { this.selected.has(it.name) ? this.selected.delete(it.name) : this.selected.add(it.name); }
         else if (e.shiftKey) { const a = Math.min(this.cursor, i), b = Math.max(this.cursor, i); for (let k = a; k <= b; k++) this.selected.add(this.visible[k].name); }
         else { this.selected.clear(); this.selected.add(it.name); }
