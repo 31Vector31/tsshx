@@ -230,7 +230,10 @@ window.App = (() => {
   app.applySettings = applySettings;
 
   // ---------- settings dialog ----------
+  let settingsCtl = null;
   function openSettings() {
+    if (settingsCtl) { settingsCtl.focus(); return; }   // single instance: Ctrl+, again just refocuses
+    if (UI.modalOpen) return;
     const snapshot = { ...app.settings };
     const s = () => app.settings;
     const f = {};
@@ -327,11 +330,12 @@ window.App = (() => {
     for (const k of Object.keys(pages)) tabsRow.append(h('button', { dataset: { k }, onClick: () => showPage(k) }, t('settings.' + k)));
     showPage('appearance');
 
-    UI.modal({ title: t('settings.title'), body, width: '760px', closeOnBack: false, buttons: [
+    settingsCtl = UI.modal({ title: t('settings.title'), body, width: '760px', closeOnBack: false, buttons: [
       { label: t('settings.reset'), onClick: () => { applySettings({ theme: 'Midnight', bgImage: '', bgDim: 0.55, bgBlur: 0, bgFit: 'cover', termOpacity: 0.85, termPadding: 10, chromeFromTheme: true, fontSize: 14, lineHeight: 1.15 }); renderThemeList(); refreshWp(); return UI.KEEP_OPEN; } },
       { label: t('cancel'), onClick: () => { const revert = {}; for (const k of Object.keys(dirty)) revert[k] = snapshot[k]; applySettings(revert, { persist: false }); return null; } },
       { label: t('apply'), primary: true, onClick: () => { window.api.settings.set({ ...dirty }); dirty = {}; return true; } },
     ] });
+    settingsCtl.promise.then(() => { settingsCtl = null; });
   }
 
   // ---------- vault ----------
