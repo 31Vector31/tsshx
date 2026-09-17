@@ -108,9 +108,8 @@ window.App = (() => {
         const ph = pp.hostId ? Hosts.byId(pp.hostId) : null;
         return h('span', { class: 'seg' + (pp === g.activePane ? ' cur' : '') + (pp.status !== 'connected' && pp.status !== 'connecting' ? ' dead' : ''), title: `${pp.entry.username || ''}@${pp.entry.host}:${pp.entry.port || 22}`,
           onClick: (e) => { e.stopPropagation(); activateTab(g.id); g.focus(pp); } },
-          ph && ph.color ? h('span', { class: 'sc', style: { background: ph.color } }) : null,
-          h('span', { class: 'title' }, pp.title + (pp.status === 'connecting' ? '…' : '')),
-          h('span', { class: 'close', title: t('pane.close'), onClick: (e) => { e.stopPropagation(); closePane(pp); } }, Icon('close', 11)));
+          ph && ph.color ? h('span', { class: 'hc', style: { background: ph.color } }) : null,
+          h('span', { class: 'title' }, pp.title + (pp.status === 'connecting' ? '…' : '')));
       }) : [h('span', { class: 'title' }, p.title + (p.status === 'connecting' ? '…' : ''))];
       const el = h('div', { class: 'tab' + (g.id === app.activeId ? ' active' : '') + (inactive ? ' inactive' : '') + (split ? ' split' : ''), dataset: { id: g.id }, title: split ? '' : `${p.entry.username || ''}@${p.entry.host}:${p.entry.port || 22}${inactive ? ' (' + t('tab.inactive') + ')' : ''}`, onClick: () => activateTab(g.id), onAuxclick: (e) => { if (e.button === 1) closeTab(g.id); } },
         !split && hh && hh.color ? h('span', { class: 'hc', style: { background: hh.color } }) : null,

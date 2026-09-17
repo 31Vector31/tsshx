@@ -51,17 +51,16 @@ kbd { font: 11px var(--mono); color: var(--fg2); border: 1px solid var(--border)
 .tab:hover .close, .tab.active .close { visibility: visible; }
 .tab .close:hover { background: var(--bg3); color: var(--fg); }
 .tab .hc { position: absolute; left: 0; right: 0; top: 0; height: 2px; }
-/* split tab: one segment per pane, Chrome-style */
+/* split tab: one segment per pane, Chrome-style; same look as a normal tab */
 .tab.split { padding-left: 0; max-width: none; gap: 0; }
-.tab .seg { display: flex; align-items: center; gap: 5px; height: 100%; padding: 0 4px 0 10px; max-width: 170px; min-width: 0; border-right: 1px solid var(--border); color: var(--fg2); position: relative; }
-.tab .seg:last-of-type { border-right: none; }
+.tab .seg { display: flex; align-items: center; gap: 6px; height: 100%; padding: 0 10px; max-width: 170px; min-width: 60px; position: relative; color: var(--fg2); }
+.tab .seg + .seg::before { content: ''; position: absolute; left: 0; top: 9px; bottom: 9px; width: 1px; background: var(--border); }
 .tab .seg .title { flex: 1; }
-.tab.active .seg.cur { color: var(--fg); box-shadow: inset 0 -2px 0 var(--fg2); }
+.tab.active .seg.cur { color: var(--fg); }
+.tab.active .seg:not(.cur) .hc { opacity: .45; }
+.tab:not(.active) .seg .hc { opacity: .6; }
 .tab .seg.dead .title { font-style: italic; }
-.tab .seg .sc { width: 6px; height: 6px; border-radius: 1px; flex-shrink: 0; }
-.tab .seg .close { visibility: hidden; }
-.tab .seg:hover .close { visibility: visible; }
-.tab.split .tab-close { margin: 0 2px 0 4px; }
+.tab.split .tab-close { margin: 0 2px 0 -4px; }
 
 /* main */
 #main { display: flex; flex: 1; min-height: 0; }
