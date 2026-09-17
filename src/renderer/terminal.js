@@ -28,7 +28,8 @@ window.TerminalTab = (() => {
       this.status = 'idle';
       this.cwd = null; this.remoteHome = null;
       this.title = o.entry.name || `${o.entry.username || ''}@${o.entry.host}`;
-      this.wrap = UI.h('div', { class: 'term-wrap', style: { padding: (o.settings.termPadding == null ? 10 : o.settings.termPadding) + 'px' } });
+      this.wrap = UI.h('div', { class: 'term-wrap' });
+      this.wrap.style.setProperty('--term-pad', (o.settings.termPadding == null ? 10 : o.settings.termPadding) + 'px');
       if (o.container) o.container.append(this.wrap);
       this.group = null;
       this._buildTerm();
@@ -132,7 +133,7 @@ window.TerminalTab = (() => {
       t.options.fontFamily = s.fontFamily; t.options.fontSize = s.fontSize; t.options.lineHeight = s.lineHeight || 1.1;
       if (t.options.allowTransparency !== needsTransparency(s)) t.options.allowTransparency = needsTransparency(s);
       t.options.theme = themeFor(s); t.options.scrollback = s.scrollback; t.options.cursorStyle = s.cursorStyle; t.options.cursorBlink = !!s.cursorBlink;
-      this.wrap.style.padding = (s.termPadding == null ? 10 : s.termPadding) + 'px';
+      this.wrap.style.setProperty('--term-pad', (s.termPadding == null ? 10 : s.termPadding) + 'px');
       if ((s.renderer === 'webgl') !== !!this.webgl) { if (this.webgl) { this.webgl.dispose(); this.webgl = null; } else this._loadRenderer(); }
       this.fitNow();
     }
