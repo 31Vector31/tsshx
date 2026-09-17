@@ -8,7 +8,8 @@ and a remote directory index for instant `cd`. Built on Electron, [xterm.js](htt
 npm install        # deps; postinstall rebuilds node-pty / cpu-features for Electron
 npm start          # run
 npm test           # backend tests under Electron's Node (in-process SSH server)
-npm run dist:linux # AppImage + deb   (dist:win → nsis + portable, dist:mac → dmg)
+npm run dist:linux # AppImage + deb   (dist:win → Setup installer + portable exe, dist:mac → dmg)
+                   # release assets: the Setup/portable exe, the dmg, the AppImage/deb; skip *.blockmap, latest*.yml, *-unpacked/
 ```
 
 ## Features
