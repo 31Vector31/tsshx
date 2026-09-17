@@ -319,7 +319,7 @@ window.App = (() => {
         case 'KeyT': e.preventDefault(); if (!inModal) { $('#quick-connect').focus(); } return;
         case 'KeyW': e.preventDefault(); if (app.activeId) closeTab(app.activeId); return;
         case 'KeyN': e.preventDefault(); { const tb = app.activeTab(); if (tb) app.openTerminal({ hostId: tb.hostId, entry: tb.entry }); } return;
-        case 'KeyR': return; // reload (menu)
+        case 'KeyR': e.preventDefault(); if (!inModal || $('.hist-modal')) History.open(); return;
         case 'Tab': e.preventDefault(); cycleTab(-1); return;
         case 'PageUp': e.preventDefault(); cycleTab(-1); return;
         case 'PageDown': e.preventDefault(); cycleTab(1); return;
@@ -383,10 +383,11 @@ window.App = (() => {
     $('#files').style.width = (app.settings.filePanelWidth || 520) + 'px';
     resizer($('#sidebar-resizer'), $('#sidebar'), 1, 'sidebarWidth');
     resizer($('#files-resizer'), $('#files'), -1, 'filePanelWidth');
-    Hosts.init(app); Files.init(app); Jump.init(app);
+    Hosts.init(app); Files.init(app); Jump.init(app); History.init(app);
     $('#btn-sidebar').addEventListener('click', toggleSidebar);
     $('#btn-newtab').addEventListener('click', () => { const sel = Hosts.selectedId; if (sel) Hosts.connectSelected(); else $('#quick-connect').focus(); });
     $('#btn-jump').addEventListener('click', () => Jump.open());
+    $('#btn-history').addEventListener('click', () => History.open());
     $('#btn-files').addEventListener('click', () => Files.toggle());
     $('#btn-settings').addEventListener('click', openSettings);
     $('#btn-lock').addEventListener('click', lock);

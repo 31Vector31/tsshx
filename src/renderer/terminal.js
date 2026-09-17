@@ -163,6 +163,15 @@ window.TerminalTab = (() => {
       this.term.focus();
     }
 
+    /** Put text on the shell's command line (replacing any half-typed input); run=true also presses Enter. */
+    insert(text, run) {
+      if (!this.sessionId) return;
+      window.api.ssh.write(this.sessionId, '\x15');
+      this.term.paste(text.replace(/\r?\n$/, ''));
+      if (run) window.api.ssh.write(this.sessionId, '\r');
+      this.term.focus();
+    }
+
     async close() {
       if (this.sessionId) { try { await window.api.ssh.close(this.sessionId); } catch (_) {} }
       this._ro.disconnect();

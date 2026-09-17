@@ -42,11 +42,18 @@ npm run dist:linux # AppImage + deb   (dist:win → nsis + portable, dist:mac �
   (FTP: recursive walk), gzipped on disk per host. Fuzzy search (multi-term, subsequence, basename boost),
   `Enter` → `cd` in the terminal, `Ctrl+Enter` → open in the file panel. Rebuild any time, cancel, custom root.
 
+**Shell history (Ctrl+Shift+R)**
+- Reads `.bash_history`, `.zsh_history` (extended format, multi-line) and fish history of the host over the SSH session,
+  merges them with commands run from the palette, ranks by recency and frequency. Search, `Enter` inserts the command on
+  the prompt (replacing half-typed input), `Ctrl+Enter` runs it, `Ctrl+B` pins per host, `Ctrl+C` copies.
+- bash only writes history on exit by default; add `PROMPT_COMMAND='history -a'` on the host to see commands live.
+
 ## Shortcuts
 
 | Keys | Action |
 | --- | --- |
 | Ctrl+P | Jump to indexed directory |
+| Ctrl+Shift+R | Shell history |
 | Ctrl+Shift+E / F11 | Toggle file manager |
 | Ctrl+Shift+F | Search in terminal |
 | Ctrl+Shift+T | Focus quick connect |

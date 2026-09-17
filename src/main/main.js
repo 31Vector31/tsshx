@@ -7,6 +7,7 @@ const { Vault, parseSshConfig } = require('./vault');
 const { SessionManager, KnownHosts } = require('./ssh-manager');
 const { LocalFS, SftpFS, FtpFS, TransferManager } = require('./fs-backends');
 const { Indexer } = require('./indexer');
+const { HistoryStore } = require('./history');
 
 if (process.env.TERHUI_USER_DATA) app.setPath('userData', process.env.TERHUI_USER_DATA);
 app.setName('terhui');
@@ -39,7 +40,7 @@ const DEFAULT_SETTINGS = {
 const IMAGE_EXT = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'avif'];
 
 let win = null;
-let vault, knownHosts, sessions, transfers, indexer, settings;
+let vault, knownHosts, sessions, transfers, indexer, settings, history;
 const localFS = new LocalFS();
 const ftpConns = new Map();  // fsId -> FtpFS
 const pending = new Map();   // prompt id -> resolve
@@ -139,7 +140,7 @@ function createWindow() {
   const menu = Menu.buildFromTemplate([
     { label: 'terhui', submenu: [
       { label: 'Toggle DevTools', accelerator: 'F12', click: () => win.webContents.toggleDevTools() },
-      { label: 'Reload UI', accelerator: 'CmdOrCtrl+Shift+R', click: () => win.reload() },
+      { label: 'Reload UI', accelerator: 'CmdOrCtrl+Alt+R', click: () => win.reload() },
       { type: 'separator' }, { role: 'quit' } ] },
     { label: 'Edit', submenu: [{ role: 'undo' }, { role: 'redo' }, { type: 'separator' }, { role: 'cut' }, { role: 'copy' }, { role: 'paste' }, { role: 'selectAll' }] },
   ]);
@@ -256,6 +257,11 @@ function registerIpc() {
   handle('xfer:clear', () => { transfers.clearFinished(); return transfers.list(); });
 
   // indexer
+  // shell history
+  handle('history:fetch', (sessionId, hostKey) => history.fetch(sessions.require(sessionId), hostKey));
+  handle('history:note', (hostKey, cmd) => { history.note(hostKey, cmd); return true; });
+  handle('history:pins', (hostKey, list) => (Array.isArray(list) ? history.setPins(hostKey, list) : history.getPins(hostKey)));
+
   handle('index:info', (hostId) => indexer.info(hostId));
   handle('index:build', async (hostId, { sessionId, fsId, root, includeFiles }) => {
     if (sessionId) return indexer.buildSsh(hostId, sessions.require(sessionId), { root: root || '/', includeFiles: !!includeFiles });
@@ -343,6 +349,7 @@ else {
     transfers.on('progress', (v) => send('xfer:progress', v));
     indexer = new Indexer(path.join(ud, 'index'));
     indexer.on('progress', (p) => send('index:progress', p));
+    history = new HistoryStore(ud);
     registerIpc();
     createWindow();
     app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(); });

@@ -172,6 +172,16 @@ kbd { font: 11px var(--mono); color: var(--fg2); border: 1px solid var(--border)
 .jump .r mark { background: transparent; color: var(--accent); }
 .jump .foot { display: flex; align-items: center; gap: 8px; margin-top: 8px; font-size: 11px; color: var(--fg2); flex-wrap: wrap; }
 
+/* history palette */
+.hist .r { display: flex; align-items: center; gap: 8px; padding: 0 8px; height: var(--row); font-family: var(--mono); font-size: 12px; white-space: nowrap; }
+.hist .r .cmd { flex: 1; overflow: hidden; text-overflow: ellipsis; }
+.hist .r .cmd mark { background: transparent; color: var(--accent); }
+.hist .r .meta { color: var(--fg2); font-size: 11px; font-family: var(--font); flex-shrink: 0; }
+.hist .r .pinbtn { width: 18px; height: 18px; padding: 0; background: transparent; border: none; color: var(--fg2); visibility: hidden; }
+.hist .r:hover .pinbtn, .hist .r.active .pinbtn, .hist .r.pinned .pinbtn { visibility: visible; }
+.hist .r.pinned .pinbtn { color: var(--fg); }
+.hist .r.multi .cmd::after { content: ' ⏎'; color: var(--fg2); }
+
 /* editor */
 .editor textarea { width: min(900px, 90vw); height: 60vh; font-family: var(--mono); font-size: 12px; white-space: pre; tab-size: 4; }
 

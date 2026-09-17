@@ -26,6 +26,7 @@ contextBridge.exposeInMainWorld('api', {
   },
   xfer: { start: invoke('xfer:start'), list: invoke('xfer:list'), cancel: invoke('xfer:cancel'), clear: invoke('xfer:clear') },
   index: { info: invoke('index:info'), build: invoke('index:build'), search: invoke('index:search'), cancel: invoke('index:cancel'), clear: invoke('index:clear') },
+  history: { fetch: invoke('history:fetch'), note: invoke('history:note'), pins: invoke('history:pins') },
   dialog: { open: invoke('dialog:open'), save: invoke('dialog:save'), confirm: invoke('dialog:confirm') },
   themes: { list: invoke('themes:list'), import: invoke('themes:import'), save: invoke('themes:save'), delete: invoke('themes:delete') },
   wallpaper: { pick: invoke('wallpaper:pick'), read: invoke('wallpaper:read') },
