@@ -288,7 +288,10 @@ function registerIpc() {
     if (opts.wsl) {
       // history lives inside the distro: run the same collector script there
       const { execFile } = require('child_process');
-      const stdout = await new Promise((resolve, reject) => execFile('wsl.exe', ['-d', opts.wsl, '--', 'sh', '-c', FETCH_CMD], { encoding: 'utf8', maxBuffer: 32 * 1024 * 1024, windowsHide: true, timeout: 20000 }, (err, out) => (err && !out) ? reject(err) : resolve(out || '')));
+      // wsl.exe re-joins the argument list into one command line for the Linux side, so quotes inside the
+      // collector script would be mangled: ship it base64-encoded and decode it in the distro.
+      const b64 = Buffer.from(FETCH_CMD, 'utf8').toString('base64');
+      const stdout = await new Promise((resolve, reject) => execFile('wsl.exe', ['-d', opts.wsl, '--', 'sh', '-c', `echo ${b64} | base64 -d | sh`], { encoding: 'utf8', maxBuffer: 32 * 1024 * 1024, windowsHide: true, timeout: 20000 }, (err, out, stderr) => { if (err && !out) { logLine('wsl history failed', err.message, stderr || ''); return reject(err); } resolve(out || ''); }));
       for (const { file, text } of splitBlob(stdout)) { const kind = /zsh_history$/.test(file) ? 'zsh' : /fish_history$/.test(file) ? 'fish' : 'bash'; sources.push({ src: kind, entries: kind === 'zsh' ? parseZsh(text) : kind === 'fish' ? parseFish(text) : parseBash(text) }); }
       sources.push({ src: 'terhui', entries: history.extras(hostKey) });
       return { entries: mergeRank(sources), files: sources.map(s => s.src), pins: history.getPins(hostKey) };
