@@ -43,7 +43,8 @@ window.App = (() => {
     return pane;
   };
   app.split = (dir, from, before) => { from = from || app.activeTab(); if (!from) return; if (!dir) { const r = from.wrap.getBoundingClientRect(); dir = r.width > r.height * 1.5 ? 'h' : 'v'; } return app.openTerminal({ hostId: from.hostId, entry: from.entry, profile: from.profile, from, dir, before }); };
-  const MOD = navigator.platform.startsWith('Mac') ? 'Cmd' : 'Ctrl';   // for shortcut hints
+  const IS_MAC = navigator.platform.startsWith('Mac');
+  const MOD = IS_MAC ? 'Cmd' : 'Ctrl';   // for shortcut hints
   app.dropGroup = (g) => { const idx = app.tabs.indexOf(g); if (idx < 0) return; app.tabs.splice(idx, 1); g.wrap.remove(); if (app.activeId === g.id) { const next = app.tabs[Math.min(idx, app.tabs.length - 1)]; activateTab(next ? next.id : null); } renderTabs(); };
   /** Move a pane out of its group into a new tab. */
   app.detachPane = (pane) => { const src = pane.group; if (!src || src.panes.length < 2) return; src.remove(pane); const g = new TabGroup(app); app.tabs.push(g); $('#terminals').append(g.wrap); g.add(pane); activateTab(g.id); };
@@ -123,8 +124,8 @@ window.App = (() => {
       el.addEventListener('dragstart', (e) => { e.dataTransfer.setData('text/plain', g.id); e.dataTransfer.effectAllowed = 'move'; TabGroup.startDrag('tab', g.id); });
       el.addEventListener('dragend', TabGroup.endDrag);
       el.addEventListener('contextmenu', (e) => { e.preventDefault(); activateTab(g.id); UI.ctxmenu(e.clientX, e.clientY, [
-        { label: t('pane.splitRight'), kbd: MOD + '+Shift+→', onClick: () => app.split('h') },
-        { label: t('pane.splitDown'), kbd: MOD + '+Shift+↓', onClick: () => app.split('v') },
+        { label: t('pane.splitRight'), kbd: IS_MAC ? 'Cmd+D' : 'Ctrl+Shift+5', onClick: () => app.split('h') },
+        { label: t('pane.splitDown'), kbd: IS_MAC ? 'Cmd+Shift+D' : 'Ctrl+Shift+6', onClick: () => app.split('v') },
         { label: t('tab.duplicate'), onClick: () => app.openTerminal({ hostId: p.hostId, entry: p.entry, profile: p.profile }) },
         '-',
         { label: t('menu.files'), onClick: () => p.local ? Files.openFor({ local: true, path: p.fsHome() }) : p.sessionId && Files.openFor({ sessionId: p.sessionId }), disabled: !p.sessionId },
@@ -425,13 +426,11 @@ window.App = (() => {
         case 'KeyF': e.preventDefault(); openSearch(); return;
         case 'KeyT': e.preventDefault(); if (!inModal) { $('#quick-connect').focus(); } return;
         case 'KeyW': e.preventDefault(); { const p = app.activeTab(); if (p) closePane(p); } return;
-        case 'KeyD': e.preventDefault(); app.split(); return;
+        case 'KeyD': e.preventDefault(); app.split(IS_MAC ? 'v' : undefined); return;   // mac: Cmd+Shift+D = split down (iTerm convention)
         case 'Digit5': e.preventDefault(); app.split('h'); return;
         case 'Digit6': e.preventDefault(); app.split('v'); return;
-        case 'ArrowRight': e.preventDefault(); app.split('h'); return;          // new pane on the right
-        case 'ArrowLeft': e.preventDefault(); app.split('h', null, true); return;
-        case 'ArrowDown': e.preventDefault(); app.split('v'); return;
-        case 'ArrowUp': e.preventDefault(); app.split('v', null, true); return;
+        case 'ArrowRight': case 'ArrowLeft': case 'ArrowDown': case 'ArrowUp':   // focus the neighbouring split pane
+          e.preventDefault(); app.focusNeighbor(e.code.slice(5).toLowerCase()); return;
         case 'Enter': e.preventDefault(); { const g = app.activeGroup(); if (g) g.toggleMaximize(); } return;
         case 'KeyN': e.preventDefault(); { const tb = app.activeTab(); if (tb) app.openTerminal({ hostId: tb.hostId, entry: tb.entry, profile: tb.profile }); } return;
         case 'KeyR': e.preventDefault(); if (!inModal || $('.hist-modal')) History.open(); return;
@@ -444,6 +443,7 @@ window.App = (() => {
     } else if (ctrl && !e.altKey) {
       // Cmd+W (macOS) always closes the pane; Ctrl+W does so outside the terminal, or inside it too when enabled
       // in Settings (by default the shell keeps Ctrl+W = delete word).
+      if (e.code === 'KeyD' && e.metaKey && !inModal) { e.preventDefault(); app.split('h'); return; }
       if (e.code === 'KeyW' && !inModal) {
         const inTerm = !!(document.activeElement && document.activeElement.closest('.xterm'));
         if (e.metaKey || !inTerm || app.settings.ctrlWClosesTab) { e.preventDefault(); const p = app.activeTab(); if (p) closePane(p); return; }
@@ -459,7 +459,7 @@ window.App = (() => {
         case 'Comma': e.preventDefault(); openSettings(); return;
       }
     } else if (e.altKey && e.shiftKey && !ctrl && (e.code === 'Equal' || e.code === 'Minus')) { e.preventDefault(); app.split(e.code === 'Equal' ? 'h' : 'v');
-    } else if (e.altKey && !ctrl && !e.shiftKey && /^Arrow(Left|Right|Up|Down)$/.test(e.code)) { e.preventDefault(); app.focusNeighbor(e.code.slice(5).toLowerCase());
+    } else if (!IS_MAC && e.altKey && !ctrl && !e.shiftKey && /^Arrow(Left|Right|Up|Down)$/.test(e.code)) { e.preventDefault(); app.focusNeighbor(e.code.slice(5).toLowerCase());   // on macOS Option+arrows belong to the shell (word jumps)
     } else if (e.altKey && !ctrl && /^Digit[1-9]$/.test(e.code)) {
       const i = +e.code.slice(5) - 1; if (app.tabs[i]) { e.preventDefault(); activateTab(app.tabs[i].id); }
     } else if (e.code === 'F11' && !inModal) { e.preventDefault(); Files.toggle(); }
@@ -512,7 +512,7 @@ window.App = (() => {
     $('#btn-newtab').addEventListener('click', () => { const sel = Hosts.selectedId; if (sel) Hosts.connectSelected(); else $('#quick-connect').focus(); });
     $('#btn-jump').addEventListener('click', () => Jump.open());
     $('#btn-history').addEventListener('click', () => History.open());
-    $('#btn-split').addEventListener('click', (e) => { const r = e.currentTarget.getBoundingClientRect(); UI.ctxmenu(r.left, r.bottom + 2, [{ label: t('pane.splitRight'), kbd: MOD + '+Shift+→', onClick: () => app.split('h') }, { label: t('pane.splitDown'), kbd: MOD + '+Shift+↓', onClick: () => app.split('v') }, { label: t('pane.splitLeft'), kbd: MOD + '+Shift+←', onClick: () => app.split('h', null, true) }, { label: t('pane.splitUp'), kbd: MOD + '+Shift+↑', onClick: () => app.split('v', null, true) }, '-', { label: t('pane.maximize'), kbd: MOD + '+Shift+Enter', onClick: () => { const g = app.activeGroup(); if (g) g.toggleMaximize(); } }]); });
+    $('#btn-split').addEventListener('click', (e) => { const r = e.currentTarget.getBoundingClientRect(); UI.ctxmenu(r.left, r.bottom + 2, [{ label: t('pane.splitRight'), kbd: IS_MAC ? 'Cmd+D' : 'Ctrl+Shift+5', onClick: () => app.split('h') }, { label: t('pane.splitDown'), kbd: IS_MAC ? 'Cmd+Shift+D' : 'Ctrl+Shift+6', onClick: () => app.split('v') }, { label: t('pane.splitLeft'), onClick: () => app.split('h', null, true) }, { label: t('pane.splitUp'), onClick: () => app.split('v', null, true) }, '-', { label: t('pane.maximize'), kbd: MOD + '+Shift+Enter', onClick: () => { const g = app.activeGroup(); if (g) g.toggleMaximize(); } }]); });
     $('#btn-files').addEventListener('click', () => Files.toggle());
     $('#btn-settings').addEventListener('click', openSettings);
     $('#btn-lock').addEventListener('click', lock);

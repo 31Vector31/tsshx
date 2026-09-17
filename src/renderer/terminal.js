@@ -106,7 +106,8 @@ window.TerminalTab = (() => {
       if (e.altKey && /^Digit[1-9]$/.test(e.code)) return false;
       if (e.code === 'KeyW' && !e.shiftKey && !e.altKey && (e.metaKey || (e.ctrlKey && this.settings.ctrlWClosesTab))) return false;   // close pane shortcut
       if (e.altKey && e.shiftKey && (e.code === 'Equal' || e.code === 'Minus')) return false;
-      if (e.altKey && !e.shiftKey && !e.ctrlKey && /^Arrow/.test(e.code)) return false;
+      if (e.altKey && !e.shiftKey && !e.ctrlKey && !e.metaKey && /^Arrow/.test(e.code) && !navigator.platform.startsWith('Mac')) return false;
+      if (e.metaKey && e.code === 'KeyD' && !e.altKey) return false;   // Cmd+D / Cmd+Shift+D split (macOS)
       return true;
     }
 
