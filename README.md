@@ -5,9 +5,9 @@ and a remote directory index for instant `cd`. Built on Electron, [xterm.js](htt
 [ssh2](https://github.com/mscdex/ssh2) and [basic-ftp](https://github.com/patrickjuchli/basic-ftp).
 
 ```
-npm install        # deps (ssh2 native helpers, node-pty for tests, Electron binary)
+npm install        # deps; postinstall rebuilds node-pty / cpu-features for Electron
 npm start          # run
-npm test           # backend tests (spins up an in-process SSH server)
+npm test           # backend tests under Electron's Node (in-process SSH server)
 npm run dist:linux # AppImage + deb   (dist:win → nsis + portable, dist:mac → dmg)
 ```
 
@@ -26,6 +26,12 @@ npm run dist:linux # AppImage + deb   (dist:win → nsis + portable, dist:mac �
 - Window: OS frame with Window Controls Overlay (tabs live in the title bar, native caption buttons, Win11 snap layouts and
   rounded corners; `hiddenInset` on macOS), caption colours follow the theme, optional Mica/Acrylic backdrop on Windows 11.
   Settings → General → Window frame switches back to a plain native title bar.
+
+**Local terminals**
+- Section "Local" in the sidebar: auto-detected shells (Windows: PowerShell 7, Windows PowerShell, cmd, every WSL distro,
+  Git Bash; macOS/Linux: login shell, zsh, bash, fish), editable profiles (command, args, start dir, colour). node-pty
+  (ConPTY on Windows). Local tabs get the same splits, history palette (bash/zsh/fish/PSReadLine files), directory index and
+  file panel; shell integration works for bash/zsh (also inside WSL).
 
 **Credential vault**
 - `vault.json` in the user-data dir, AES-256-GCM, key from master password via scrypt (N=2^15).

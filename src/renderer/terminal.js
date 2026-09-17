@@ -19,6 +19,8 @@ window.TerminalTab = (() => {
     constructor(o) {
       this.id = 'tab' + (seq++);
       this.hostId = o.hostId || null;
+      this.profile = o.profile || null;   // local shell profile → pty transport instead of ssh
+      this.local = !!o.profile;
       this.entry = o.entry;                 // { name, host, port, username, ... }
       this.settings = o.settings;
       this.cb = o.callbacks || {};
@@ -60,9 +62,9 @@ window.TerminalTab = (() => {
         if (m) { let p = m[1].trim(); if (p === '~' || p.startsWith('~/')) { if (this.remoteHome) p = this.remoteHome + p.slice(1); else return; } if (p.startsWith('/')) this._setCwd(p); }
         this.cb.onTitle && this.cb.onTitle(this, title);
       });
-      term.onData((d) => { if (this.sessionId && this.status === 'connected') window.api.ssh.write(this.sessionId, d); else if (this.status === 'closed' && d === '\r') this.reconnect(); });
-      term.onBinary((d) => { if (this.sessionId) window.api.ssh.write(this.sessionId, d); });
-      term.onResize(({ cols, rows }) => { if (this.sessionId) window.api.ssh.resize(this.sessionId, cols, rows); this.cb.onResize && this.cb.onResize(this, cols, rows); });
+      term.onData((d) => { if (this.sessionId && this.status === 'connected') this._send( d); else if (this.status === 'closed' && d === '\r') this.reconnect(); });
+      term.onBinary((d) => { if (this.sessionId) this._send( d); });
+      term.onResize(({ cols, rows }) => { if (this.sessionId) this._resize(cols, rows); this.cb.onResize && this.cb.onResize(this, cols, rows); });
       term.onSelectionChange(() => { if (this.settings.copyOnSelect && term.hasSelection()) window.api.clipboard.write(term.getSelection()); });
       term.attachCustomKeyEventHandler((e) => this._keyHandler(e));
       this.wrap.addEventListener('contextmenu', (e) => { e.preventDefault(); if (this.settings.rightClickPaste) this.paste(); });
@@ -131,8 +133,16 @@ window.TerminalTab = (() => {
     async connect() {
       this.fitNow();
       this._setStatus('connecting');
-      this.term.writeln(`\x1b[90m${t('ssh.connecting', { h: `${this.entry.username ? this.entry.username + '@' : ''}${this.entry.host}:${this.entry.port || 22}` })}\x1b[0m`);
+      if (!this.local) this.term.writeln(`\x1b[90m${t('ssh.connecting', { h: `${this.entry.username ? this.entry.username + '@' : ''}${this.entry.host}:${this.entry.port || 22}` })}\x1b[0m`);
       try {
+        if (this.local) {
+          const r = await window.api.pty.spawn({ profile: this.profile, cols: this.term.cols, rows: this.term.rows });
+          this.sessionId = r.sessionId; this.remoteHome = r.home;
+          this._setStatus('connected');
+          if (this.profile.kind === 'posix') this._startIntegration();
+          this.term.focus();
+          return;
+        }
         const r = await window.api.ssh.connect({ hostId: this.hostId, entry: this.hostId ? undefined : this.entry, cols: this.term.cols, rows: this.term.rows });
         this.sessionId = r.sessionId;
         this.entry = { ...this.entry, username: r.username };
@@ -164,7 +174,7 @@ window.TerminalTab = (() => {
     _siSend() {
       const si = this.si; if (!si || si.phase !== 'wait') return;
       clearTimeout(si.timer); si.phase = 'filter';
-      window.api.ssh.write(this.sessionId, si.line + '\r');
+      this._send( si.line + '\r');
       si.timer = setTimeout(() => this._siFlush(), 4000);
     }
     _siFlush() { const si = this.si; if (!si) return; clearTimeout(si.timer); this.si = null; for (const c of si.buf) this.term.write(c); }
@@ -195,9 +205,12 @@ window.TerminalTab = (() => {
       if (nl + 1 < all.length) this.term.write(all.subarray(nl + 1));
     }
 
+    _send(data) { if (this.local) window.api.pty.write(this.sessionId, data); else window.api.ssh.write(this.sessionId, data); }
+    _resize(cols, rows) { if (this.local) window.api.pty.resize(this.sessionId, cols, rows); else window.api.ssh.resize(this.sessionId, cols, rows); }
+
     onClosed(reason) {
       this.sessionId = null;
-      this.term.writeln(`\r\n\x1b[33m${t('ssh.closed')}\x1b[0m \x1b[90m(${reason || ''})\x1b[0m`);
+      this.term.writeln(`\r\n\x1b[33m${t(this.local ? 'local.exited' : 'ssh.closed')}\x1b[0m \x1b[90m(${reason || ''})\x1b[0m`);
       this.term.writeln(`\x1b[90m${t('ssh.reconnect')}\x1b[0m`);
       this._setStatus('closed', reason);
       this.cb.onClosed && this.cb.onClosed(this);
@@ -209,7 +222,7 @@ window.TerminalTab = (() => {
     cd(path) {
       if (!this.sessionId) return;
       const q = "'" + String(path).replace(/'/g, "'\\''") + "'";
-      window.api.ssh.write(this.sessionId, `\x15cd ${q}\n`); // ^U clears any half-typed command first
+      this._send( `\x15cd ${q}\n`); // ^U clears any half-typed command first
       this._setCwd(path);
       this.term.focus();
     }
@@ -217,14 +230,14 @@ window.TerminalTab = (() => {
     /** Put text on the shell's command line (replacing any half-typed input); run=true also presses Enter. */
     insert(text, run) {
       if (!this.sessionId) return;
-      window.api.ssh.write(this.sessionId, '\x15');
+      this._send( '\x15');
       this.term.paste(text.replace(/\r?\n$/, ''));
-      if (run) window.api.ssh.write(this.sessionId, '\r');
+      if (run) this._send( '\r');
       this.term.focus();
     }
 
     async close() {
-      if (this.sessionId) { try { await window.api.ssh.close(this.sessionId); } catch (_) {} }
+      if (this.sessionId) { try { await (this.local ? window.api.pty.close(this.sessionId) : window.api.ssh.close(this.sessionId)); } catch (_) {} }
       this._ro.disconnect();
       try { this.term.dispose(); } catch (_) {}
       this.wrap.remove();

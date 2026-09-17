@@ -89,7 +89,7 @@ window.History = (() => {
     setTimeout(() => q.focus(), 0);
     // always refresh from the host (history files change as shells exit / flush)
     try {
-      data = await window.api.history.fetch(tab.sessionId, key);
+      data = tab.local ? await window.api.history.fetchLocal(key) : await window.api.history.fetch(tab.sessionId, key);
       data.at = Date.now(); cache.set(key, data);
       if (ctl) { search(); renderStatus(); }
     } catch (err) { if (ctl) { status.textContent = (err.message || '').replace(/^Error invoking remote method '[^']+': (Error: )?/, ''); } }

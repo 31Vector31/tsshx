@@ -6,11 +6,12 @@
   "main": "src/main/main.js",
   "scripts": {
     "start": "electron .",
-    "test": "node --test test/*.test.js",
+    "test": "node test/run.js",
     "dist": "electron-builder",
     "dist:linux": "electron-builder --linux AppImage deb",
     "dist:win": "electron-builder --win nsis portable",
-    "dist:mac": "electron-builder --mac dmg"
+    "dist:mac": "electron-builder --mac dmg",
+    "postinstall": "electron-builder install-app-deps"
   },
   "license": "MIT",
   "private": true,
@@ -33,7 +34,8 @@
     ],
     "asarUnpack": [
       "node_modules/cpu-features/**",
-      "node_modules/ssh2/lib/protocol/crypto/build/**"
+      "node_modules/ssh2/lib/protocol/crypto/build/**",
+      "node_modules/node-pty/**"
     ],
     "linux": {
       "target": [
@@ -77,12 +79,12 @@
     "@xterm/addon-webgl": "^0.18.0",
     "@xterm/xterm": "^5.5.0",
     "basic-ftp": "^5.3.1",
-    "ssh2": "^1.17.0"
+    "ssh2": "^1.17.0",
+    "node-pty": "^1.1.0"
   },
   "devDependencies": {
     "electron": "^44.4.1",
-    "electron-builder": "^26.15.3",
-    "node-pty": "^1.1.0"
+    "electron-builder": "^26.15.3"
   },
   "allowScripts": {
     "electron@44.4.1": true,

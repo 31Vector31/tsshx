@@ -6,7 +6,7 @@ window.Jump = (() => {
 
   function init(a) { app = a; }
 
-  function indexKey(tab) { return tab.hostId || ('adhoc:' + (tab.entry.username || '') + '@' + tab.entry.host + ':' + (tab.entry.port || 22)); }
+  function indexKey(tab) { if (tab.local) return 'local:' + tab.profile.id; return tab.hostId || ('adhoc:' + (tab.entry.username || '') + '@' + tab.entry.host + ':' + (tab.entry.port || 22)); }
 
   async function open() {
     if (ctl) { ctl.close(); return; }
@@ -20,7 +20,7 @@ window.Jump = (() => {
     const q = h('input', { class: 'q', type: 'text', placeholder: t('jump.placeholder'), spellcheck: 'false', autofocus: true });
     const res = h('div', { class: 'results' });
     const status = h('span');
-    const rootInput = h('input', { type: 'text', value: (info.root) || (hh && hh.indexRoot) || '/', style: { width: '160px', fontFamily: 'var(--mono)' }, spellcheck: 'false', title: t('jump.root') });
+    const rootInput = h('input', { type: 'text', value: (info.root) || (hh && hh.indexRoot) || (tab.local ? (tab.remoteHome || app.home) : '/'), style: { width: '160px', fontFamily: 'var(--mono)' }, spellcheck: 'false', title: t('jump.root') });
     const filesCb = h('input', { type: 'checkbox' }); filesCb.checked = !!info.includeFiles;
     const btnBuild = h('button', { class: 'mini', onClick: () => build() }, t('jump.build'));
     const btnCancel = h('button', { class: 'mini', onClick: () => window.api.index.cancel(key) }, t('jump.cancel'));
@@ -68,12 +68,12 @@ window.Jump = (() => {
       const isFile = info.includeFiles && !r.path.endsWith('/') && /\.[^/]+$/.test(r.path.split('/').pop()) && false; // unknown; treat as dir unless it errors
       const dir = r.path;
       ctl.close();
-      if (files) Files.openFor({ sessionId: tab.sessionId, path: dir });
+      if (files) Files.openFor(tab.local ? { local: true, path: dir } : { sessionId: tab.sessionId, path: dir });
       else tab.cd(dir);
     };
     const build = async () => {
       info = { ...info, building: true, progress: 0 }; renderStatus();
-      try { info = await window.api.index.build(key, { sessionId: tab.sessionId, root: rootInput.value.trim() || '/', includeFiles: filesCb.checked }); UI.toast(t('jump.info', { n: info.count, d: 'now', r: info.root }), 'ok'); }
+      try { info = await window.api.index.build(key, tab.local ? { fsId: 'local', root: rootInput.value.trim() || app.home, includeFiles: filesCb.checked } : { sessionId: tab.sessionId, root: rootInput.value.trim() || '/', includeFiles: filesCb.checked }); UI.toast(t('jump.info', { n: info.count, d: 'now', r: info.root }), 'ok'); }
       catch (e) { UI.errToast(e); info = await window.api.index.info(key); }
       renderStatus(); search(); app.updateIndexStatus();
     };

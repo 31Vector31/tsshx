@@ -1,7 +1,7 @@
 'use strict';
 const { contextBridge, ipcRenderer, webUtils } = require('electron');
 
-const EVENTS = new Set(['ssh:data', 'ssh:status', 'ssh:closed', 'ssh:shell-closed', 'ssh:banner', 'ssh:error', 'xfer:progress', 'index:progress', 'prompt']);
+const EVENTS = new Set(['ssh:data', 'ssh:status', 'ssh:closed', 'ssh:shell-closed', 'ssh:banner', 'ssh:error', 'pty:data', 'pty:exit', 'xfer:progress', 'index:progress', 'prompt']);
 
 const invoke = (ch) => (...args) => ipcRenderer.invoke(ch, ...args);
 
@@ -26,7 +26,9 @@ contextBridge.exposeInMainWorld('api', {
   },
   xfer: { start: invoke('xfer:start'), list: invoke('xfer:list'), cancel: invoke('xfer:cancel'), clear: invoke('xfer:clear') },
   index: { info: invoke('index:info'), build: invoke('index:build'), search: invoke('index:search'), cancel: invoke('index:cancel'), clear: invoke('index:clear') },
-  history: { fetch: invoke('history:fetch'), note: invoke('history:note'), pins: invoke('history:pins') },
+  history: { fetch: invoke('history:fetch'), fetchLocal: invoke('history:fetchLocal'), note: invoke('history:note'), pins: invoke('history:pins') },
+  profiles: { list: invoke('profiles:list'), detect: invoke('profiles:detect'), save: invoke('profiles:save') },
+  pty: { spawn: invoke('pty:spawn'), close: invoke('pty:close'), write: (sessionId, data) => ipcRenderer.send('pty:write', { sessionId, data }), resize: (sessionId, cols, rows) => ipcRenderer.send('pty:resize', { sessionId, cols, rows }) },
   dialog: { open: invoke('dialog:open'), save: invoke('dialog:save'), confirm: invoke('dialog:confirm') },
   themes: { list: invoke('themes:list'), import: invoke('themes:import'), save: invoke('themes:save'), delete: invoke('themes:delete') },
   wallpaper: { pick: invoke('wallpaper:pick'), read: invoke('wallpaper:read') },

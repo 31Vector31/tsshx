@@ -132,7 +132,7 @@ window.TabGroup = (() => {
       const btn = (icon, title, fn) => h('button', { class: 'icon-btn', title, onClick: (e) => { e.stopPropagation(); fn(); } }, Icon(icon, 14));
       const head = h('div', { class: 'pane-head', draggable: 'true', title: t('pane.dragHint') },
         h('span', { class: 'grip' }, Icon('menu', 12)),
-        h('span', { class: 'pt' }, `${pane.entry.username ? pane.entry.username + '@' : ''}${pane.entry.host}`),
+        h('span', { class: 'pt' }, pane.local ? pane.profile.name : `${pane.entry.username ? pane.entry.username + '@' : ''}${pane.entry.host}`),
         h('span', { class: 'spacer' }),
         btn('splitH', t('pane.splitRight'), () => app.split('h', pane)), btn('splitV', t('pane.splitDown'), () => app.split('v', pane)),
         btn('maximize', t('pane.maximize'), () => this.toggleMaximize()), btn('close', t('pane.close'), () => app.closePane(pane)));

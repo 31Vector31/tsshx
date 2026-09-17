@@ -8,6 +8,7 @@ const { SessionManager, KnownHosts } = require('./ssh-manager');
 const { LocalFS, SftpFS, FtpFS, TransferManager } = require('./fs-backends');
 const { Indexer } = require('./indexer');
 const { HistoryStore } = require('./history');
+const { LocalShellManager, detectProfiles, localHistoryFiles } = require('./local-shell');
 
 if (process.env.TERHUI_USER_DATA) app.setPath('userData', process.env.TERHUI_USER_DATA);
 app.setName('terhui');
@@ -37,11 +38,12 @@ const DEFAULT_SETTINGS = {
   // window chrome: 'integrated' = OS frame + Window Controls Overlay (tabs live in the title bar), 'native' = plain OS title bar
   windowFrame: 'integrated', winMaterial: 'none', chromeBg: '#202329', chromeFg: '#d4d7dd',
   shellIntegration: true,
+  localProfiles: null,   // null = not detected yet; [] = user removed all
 };
 const IMAGE_EXT = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'avif'];
 
 let win = null;
-let vault, knownHosts, sessions, transfers, indexer, settings, history;
+let vault, knownHosts, sessions, transfers, indexer, settings, history, shells;
 const localFS = new LocalFS();
 const ftpConns = new Map();  // fsId -> FtpFS
 const pending = new Map();   // prompt id -> resolve
@@ -258,6 +260,29 @@ function registerIpc() {
   handle('xfer:clear', () => { transfers.clearFinished(); return transfers.list(); });
 
   // indexer
+  // local terminals
+  handle('profiles:list', () => { if (!Array.isArray(settings.localProfiles)) { settings.localProfiles = detectProfiles(); saveSettings(); } return settings.localProfiles; });
+  handle('profiles:detect', () => detectProfiles());
+  handle('profiles:save', (list) => { settings.localProfiles = Array.isArray(list) ? list : []; saveSettings(); return settings.localProfiles; });
+  handle('pty:spawn', ({ profile, cols, rows }) => {
+    const s = shells.spawn(profile, cols, rows);
+    return { sessionId: s.id, home: os.homedir(), hostname: os.hostname() };
+  });
+  ipcMain.on('pty:write', (_e, { sessionId, data }) => shells.write(sessionId, data));
+  ipcMain.on('pty:resize', (_e, { sessionId, cols, rows }) => shells.resize(sessionId, cols, rows));
+  handle('pty:close', (sessionId) => { shells.kill(sessionId); return true; });
+  handle('history:fetchLocal', (hostKey) => {
+    const { parseBash, parseZsh, parseFish, mergeRank } = require('./history');
+    const sources = [];
+    for (const { file, kind } of localHistoryFiles()) {
+      let text = ''; try { text = fs.readFileSync(file, 'utf8'); } catch (_) { continue; }
+      const lines = text.split('\n'); if (lines.length > 8000) text = lines.slice(-8000).join('\n');
+      sources.push({ src: kind, entries: kind === 'zsh' ? parseZsh(text) : kind === 'fish' ? parseFish(text) : parseBash(text) });
+    }
+    sources.push({ src: 'terhui', entries: history.extras(hostKey) });
+    return { entries: mergeRank(sources), files: sources.map(s => s.src), pins: history.getPins(hostKey) };
+  });
+
   // shell history
   handle('history:fetch', (sessionId, hostKey) => history.fetch(sessions.require(sessionId), hostKey));
   handle('history:note', (hostKey, cmd) => { history.note(hostKey, cmd); return true; });
@@ -266,6 +291,7 @@ function registerIpc() {
   handle('index:info', (hostId) => indexer.info(hostId));
   handle('index:build', async (hostId, { sessionId, fsId, root, includeFiles }) => {
     if (sessionId) return indexer.buildSsh(hostId, sessions.require(sessionId), { root: root || '/', includeFiles: !!includeFiles });
+    if (fsId === 'local') return indexer.buildWalk(hostId, localFS, { root: root || os.homedir(), includeFiles: !!includeFiles, maxEntries: 500000, maxDepth: 20 });
     return indexer.buildWalk(hostId, resolveFS(fsId), { root: root || '/', includeFiles: !!includeFiles });
   });
   handle('index:search', (hostId, q, limit) => indexer.search(hostId, q, { limit: limit || 100 }));
@@ -351,10 +377,13 @@ else {
     indexer = new Indexer(path.join(ud, 'index'));
     indexer.on('progress', (p) => send('index:progress', p));
     history = new HistoryStore(ud);
+    shells = new LocalShellManager();
+    shells.on('data', (id, d) => send('pty:data', { sessionId: id, data: d }));
+    shells.on('exit', (id, info) => send('pty:exit', { sessionId: id, ...info }));
     registerIpc();
     createWindow();
     app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(); });
   }).catch(err => fatal('startup', err));
   app.on('window-all-closed', () => { app.quit(); });
-  app.on('before-quit', () => { app.__quitting = true; try { sessions && sessions.closeAll(); for (const f of ftpConns.values()) f.close(); } catch (_) {} });
+  app.on('before-quit', () => { app.__quitting = true; try { shells && shells.closeAll(); sessions && sessions.closeAll(); for (const f of ftpConns.values()) f.close(); } catch (_) {} });
 }

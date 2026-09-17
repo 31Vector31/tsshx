@@ -38,6 +38,7 @@ window.Hosts = (() => {
     const list = $('#host-list'); list.innerHTML = '';
     const q = $('#host-filter').value.trim().toLowerCase();
     const filtered = hosts.filter(hh => !q || [hh.name, hh.host, hh.username, hh.group, hh.notes].join(' ').toLowerCase().includes(q));
+    renderLocal(list, q);
     if (!filtered.length) { list.append(h('div', { class: 'empty' }, hosts.length ? '—' : t('hosts.empty'))); return; }
     const groups = new Map();
     for (const hh of filtered) { const g = hh.group || ''; if (!groups.has(g)) groups.set(g, []); groups.get(g).push(hh); }
@@ -64,6 +65,56 @@ window.Hosts = (() => {
       }
     }
   }
+
+  // ---- local shells ----
+  function renderLocal(list, q) {
+    const profiles = (app.profiles || []).filter(p => !q || (p.name + ' ' + p.command).toLowerCase().includes(q));
+    if (!profiles.length) return;
+    const gh = h('div', { class: 'host-group', onClick: () => { collapsed.has('__local') ? collapsed.delete('__local') : collapsed.add('__local'); localStorage.setItem('terhui.collapsedGroups', JSON.stringify([...collapsed])); render(); } }, Icon(collapsed.has('__local') && !q ? 'chevronRight' : 'chevronDown', 12), t('local.title'));
+    gh.addEventListener('contextmenu', (e) => { e.preventDefault(); UI.ctxmenu(e.clientX, e.clientY, [{ label: t('local.add'), onClick: () => editProfile(null) }, { label: t('local.redetect'), onClick: redetect }]); });
+    list.append(gh);
+    if (collapsed.has('__local') && !q) return;
+    for (const p of profiles) {
+      const live = app.panes().some(x => x.local && x.profile.id === p.id && x.status === 'connected');
+      const row = h('div', { class: 'host local', dataset: { pid: p.id }, title: [p.command, ...(p.args || [])].join(' ') },
+        p.color ? h('span', { class: 'h-color', style: { background: p.color } }) : null,
+        h('span', { class: 'h-name' }, p.name),
+        h('span', { class: 'h-sub' }, p.kind === 'pwsh' ? 'pwsh' : p.kind === 'cmd' ? 'cmd' : 'sh'),
+        live ? h('span', { class: 'h-live', title: 'running' }, '●') : null);
+      row.addEventListener('click', () => { selectedId = 'local:' + p.id; UI.$$('.host', $('#host-list')).forEach(el => el.classList.toggle('selected', el.dataset.pid === p.id)); });
+      row.addEventListener('dblclick', () => app.openTerminal({ profile: p }));
+      row.addEventListener('contextmenu', (e) => { e.preventDefault(); e.stopPropagation(); UI.ctxmenu(e.clientX, e.clientY, [
+        { label: t('menu.open'), onClick: () => app.openTerminal({ profile: p }) },
+        { label: t('pane.splitRight'), onClick: () => { const from = app.activeTab(); if (from) app.openTerminal({ profile: p, from, dir: 'h' }); else app.openTerminal({ profile: p }); } },
+        '-', { label: t('menu.edit'), onClick: () => editProfile(p) },
+        { label: t('menu.duplicate'), onClick: () => editProfile({ ...p, id: '', name: p.name + ' (copy)' }) },
+        { label: t('local.add'), onClick: () => editProfile(null) }, { label: t('local.redetect'), onClick: redetect },
+        '-', { label: t('menu.delete'), onClick: async () => { if (await UI.confirm(t('host.delete.confirm', { name: p.name }), { danger: true, okLabel: t('delete') })) { app.profiles = await window.api.profiles.save(app.profiles.filter(x => x.id !== p.id)); render(); } } }]); });
+      list.append(row);
+    }
+  }
+  async function redetect() { const found = await window.api.profiles.detect(); const known = new Set(app.profiles.map(p => p.command + JSON.stringify(p.args || []))); const fresh = found.filter(p => !known.has(p.command + JSON.stringify(p.args || []))); app.profiles = await window.api.profiles.save([...app.profiles, ...fresh.map(p => ({ ...p, id: 'local-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6) }))]); UI.toast(t('hosts.imported', { n: fresh.length }), 'ok'); render(); }
+  function editProfile(p) {
+    const e = p || { name: '', command: '', args: [], cwd: '', kind: 'posix', color: '' };
+    const f = {};
+    const inp = (k, v, attrs = {}) => { f[k] = h('input', { type: 'text', value: v, spellcheck: 'false', ...attrs }); return f[k]; };
+    f.kind = h('select', null, h('option', { value: 'posix' }, 'bash / zsh / fish (POSIX)'), h('option', { value: 'pwsh' }, 'PowerShell'), h('option', { value: 'cmd' }, 'cmd')); f.kind.value = e.kind || 'posix';
+    f.color = h('select', null, ...COLORS.map(c => h('option', { value: c, style: c ? { color: c } : undefined }, c ? '■ ' + c : '—'))); f.color.value = e.color || '';
+    const form = h('div', { class: 'form' },
+      h('label', null, t('host.name')), inp('name', e.name, { autofocus: true }),
+      h('label', null, t('local.command')), inp('command', e.command, { placeholder: process_hint() }),
+      h('label', null, t('local.args')), inp('args', (e.args || []).join(' ')),
+      h('label', null, t('local.cwd')), inp('cwd', e.cwd || '', { placeholder: '~' }),
+      h('label', null, t('local.kind')), f.kind,
+      h('label', null, t('host.color')), f.color);
+    UI.modal({ title: t('local.edit'), body: form, width: '520px', buttons: [{ label: t('cancel'), value: null }, { label: t('save'), primary: true, onClick: async () => {
+      if (!f.command.value.trim()) { UI.toast(t('host.required'), 'warn'); return UI.KEEP_OPEN; }
+      const out = { ...e, id: e.id || 'local-' + Date.now(), name: f.name.value.trim() || f.command.value.trim(), command: f.command.value.trim(), args: f.args.value.trim() ? f.args.value.trim().split(/\s+/) : [], cwd: f.cwd.value.trim(), kind: f.kind.value, color: f.color.value };
+      const list = app.profiles.slice(); const i = list.findIndex(x => x.id === out.id); if (i >= 0) list[i] = out; else list.push(out);
+      app.profiles = await window.api.profiles.save(list); render(); return true;
+    } }] });
+  }
+  const process_hint = () => (app.platform === 'win32' ? 'pwsh.exe / cmd.exe / wsl.exe' : '/bin/zsh');
 
   function connect(hh) { if (hh.protocol === 'ftp') app.openFiles({ ftpHostId: hh.id }); else app.openTerminal({ hostId: hh.id, entry: hh }); }
 
@@ -155,5 +206,5 @@ window.Hosts = (() => {
     return ctl.promise;
   }
 
-  return { init, refresh, edit, render, byId, get list() { return hosts; }, get selectedId() { return selectedId; }, connectSelected: () => { const hh = byId(selectedId); if (hh) connect(hh); } };
+  return { init, refresh, edit, render, byId, editProfile, get list() { return hosts; }, get selectedId() { return selectedId; }, connectSelected: () => { if (String(selectedId).startsWith('local:')) { const p = (app.profiles || []).find(x => 'local:' + x.id === selectedId); if (p) app.openTerminal({ profile: p }); return; } const hh = byId(selectedId); if (hh) connect(hh); } };
 })();

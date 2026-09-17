@@ -31,8 +31,9 @@ window.App = (() => {
   };
 
   /** Open a terminal: in a new tab, or as a split of pane `from` (dir 'h' | 'v'). Returns the pane. */
-  app.openTerminal = async ({ hostId, entry, from, dir }) => {
-    const pane = new TerminalTab({ hostId, entry, settings: app.settings, callbacks: paneCallbacks });
+  app.openTerminal = async ({ hostId, entry, profile, from, dir }) => {
+    if (profile && !entry) entry = { name: profile.name, host: 'local', username: '', local: true };
+    const pane = new TerminalTab({ hostId, entry, profile, settings: app.settings, callbacks: paneCallbacks });
     let group = from ? from.group : null;
     if (!group) { group = new TabGroup(app); app.tabs.push(group); $('#terminals').append(group.wrap); }
     group.add(pane, from, dir);
@@ -41,7 +42,7 @@ window.App = (() => {
     await pane.connect();
     return pane;
   };
-  app.split = (dir, from) => { from = from || app.activeTab(); if (!from) return; if (!dir) { const r = from.wrap.getBoundingClientRect(); dir = r.width > r.height * 1.5 ? 'h' : 'v'; } return app.openTerminal({ hostId: from.hostId, entry: from.entry, from, dir }); };
+  app.split = (dir, from) => { from = from || app.activeTab(); if (!from) return; if (!dir) { const r = from.wrap.getBoundingClientRect(); dir = r.width > r.height * 1.5 ? 'h' : 'v'; } return app.openTerminal({ hostId: from.hostId, entry: from.entry, profile: from.profile, from, dir }); };
   app.dropGroup = (g) => { const idx = app.tabs.indexOf(g); if (idx < 0) return; app.tabs.splice(idx, 1); g.wrap.remove(); if (app.activeId === g.id) { const next = app.tabs[Math.min(idx, app.tabs.length - 1)]; activateTab(next ? next.id : null); } renderTabs(); };
   /** Move a pane out of its group into a new tab. */
   app.detachPane = (pane) => { const src = pane.group; if (!src || src.panes.length < 2) return; src.remove(pane); const g = new TabGroup(app); app.tabs.push(g); $('#terminals').append(g.wrap); g.add(pane); activateTab(g.id); };
@@ -111,7 +112,7 @@ window.App = (() => {
           ph && ph.color ? h('span', { class: 'hc', style: { background: ph.color } }) : null,
           h('span', { class: 'title' }, pp.title + (pp.status === 'connecting' ? '…' : '')));
       }) : [h('span', { class: 'title' }, p.title + (p.status === 'connecting' ? '…' : ''))];
-      const el = h('div', { class: 'tab' + (g.id === app.activeId ? ' active' : '') + (inactive ? ' inactive' : '') + (split ? ' split' : ''), dataset: { id: g.id }, title: split ? '' : `${p.entry.username || ''}@${p.entry.host}:${p.entry.port || 22}${inactive ? ' (' + t('tab.inactive') + ')' : ''}`, onClick: () => activateTab(g.id), onAuxclick: (e) => { if (e.button === 1) closeTab(g.id); } },
+      const el = h('div', { class: 'tab' + (g.id === app.activeId ? ' active' : '') + (inactive ? ' inactive' : '') + (split ? ' split' : ''), dataset: { id: g.id }, title: split ? '' : (p.local ? p.profile.command : `${p.entry.username || ''}@${p.entry.host}:${p.entry.port || 22}`) + (inactive ? ' (' + t('tab.inactive') + ')' : ''), onClick: () => activateTab(g.id), onAuxclick: (e) => { if (e.button === 1) closeTab(g.id); } },
         !split && hh && hh.color ? h('span', { class: 'hc', style: { background: hh.color } }) : null,
         ...segs,
         h('span', { class: 'close tab-close', title: t('close'), onClick: (e) => { e.stopPropagation(); closeTab(g.id); } }, Icon('close', 12)));
@@ -121,9 +122,9 @@ window.App = (() => {
       el.addEventListener('contextmenu', (e) => { e.preventDefault(); activateTab(g.id); UI.ctxmenu(e.clientX, e.clientY, [
         { label: t('pane.splitRight'), kbd: 'Ctrl+Shift+5', onClick: () => app.split('h') },
         { label: t('pane.splitDown'), kbd: 'Ctrl+Shift+6', onClick: () => app.split('v') },
-        { label: t('tab.duplicate'), onClick: () => app.openTerminal({ hostId: p.hostId, entry: p.entry }) },
+        { label: t('tab.duplicate'), onClick: () => app.openTerminal({ hostId: p.hostId, entry: p.entry, profile: p.profile }) },
         '-',
-        { label: t('menu.files'), onClick: () => p.sessionId && Files.openFor({ sessionId: p.sessionId }), disabled: !p.sessionId },
+        { label: t('menu.files'), onClick: () => p.local ? Files.openFor({ local: true, path: p.cwd || p.remoteHome }) : p.sessionId && Files.openFor({ sessionId: p.sessionId }), disabled: !p.sessionId },
         { label: t('tab.reconnect'), onClick: () => p.reconnect(), disabled: p.status === 'connected' },
         '-', { label: t('pane.close'), kbd: 'Ctrl+Shift+W', onClick: () => closePane(p), disabled: g.panes.length < 2 },
         { label: t('close'), onClick: () => closeTab(g.id) }]); });
@@ -132,7 +133,7 @@ window.App = (() => {
   }
   function updateStatus() {
     const tb = app.activeTab();
-    $('#st-session').textContent = tb ? `${tb.status === 'connected' ? '●' : '○'} ${tb.entry.username || ''}@${tb.entry.host}:${tb.entry.port || 22}` : '';
+    $('#st-session').textContent = tb ? `${tb.status === 'connected' ? '●' : '○'} ${tb.local ? tb.profile.name : `${tb.entry.username || ''}@${tb.entry.host}:${tb.entry.port || 22}`}` : '';
     $('#st-size').textContent = tb ? `${tb.term.cols}×${tb.term.rows}` : '';
   }
   app.updateIndexStatus = async () => {
@@ -178,6 +179,8 @@ window.App = (() => {
   // ---------- ssh events ----------
   window.api.on('ssh:data', ({ sessionId, data }) => { const tb = app.tabBySession(sessionId); if (tb) tb.onData(data); });
   window.api.on('ssh:closed', ({ sessionId, reason }) => { const tb = app.tabBySession(sessionId); if (tb) tb.onClosed(reason); });
+  window.api.on('pty:data', ({ sessionId, data }) => { const tb = app.tabBySession(sessionId); if (tb) tb.onData(data); });
+  window.api.on('pty:exit', ({ sessionId, exitCode }) => { const tb = app.tabBySession(sessionId); if (tb) tb.onClosed('exit ' + exitCode); });
   window.api.on('ssh:shell-closed', ({ sessionId }) => { const tb = app.tabBySession(sessionId); if (tb && tb.sessionId) window.api.ssh.close(sessionId); });
   window.api.on('ssh:banner', ({ sessionId, msg }) => { const tb = app.tabBySession(sessionId); if (tb) tb.term.write(msg.replace(/\r?\n/g, '\r\n')); });
   window.api.on('ssh:error', ({ message }) => UI.toast(message, 'error'));
@@ -390,7 +393,7 @@ window.App = (() => {
         case 'Digit5': e.preventDefault(); app.split('h'); return;
         case 'Digit6': e.preventDefault(); app.split('v'); return;
         case 'Enter': e.preventDefault(); { const g = app.activeGroup(); if (g) g.toggleMaximize(); } return;
-        case 'KeyN': e.preventDefault(); { const tb = app.activeTab(); if (tb) app.openTerminal({ hostId: tb.hostId, entry: tb.entry }); } return;
+        case 'KeyN': e.preventDefault(); { const tb = app.activeTab(); if (tb) app.openTerminal({ hostId: tb.hostId, entry: tb.entry, profile: tb.profile }); } return;
         case 'KeyR': e.preventDefault(); if (!inModal || $('.hist-modal')) History.open(); return;
         case 'Tab': e.preventDefault(); cycleTab(-1); return;
         case 'PageUp': e.preventDefault(); cycleTab(-1); return;
@@ -457,6 +460,7 @@ window.App = (() => {
     $('#files').style.width = (app.settings.filePanelWidth || 520) + 'px';
     resizer($('#sidebar-resizer'), $('#sidebar'), 1, 'sidebarWidth');
     resizer($('#files-resizer'), $('#files'), -1, 'filePanelWidth');
+    try { app.profiles = await window.api.profiles.list(); } catch (_) { app.profiles = []; }
     Hosts.init(app); Files.init(app); Jump.init(app); History.init(app);
     $('#btn-sidebar').addEventListener('click', toggleSidebar);
     $('#btn-newtab').addEventListener('click', () => { const sel = Hosts.selectedId; if (sel) Hosts.connectSelected(); else $('#quick-connect').focus(); });

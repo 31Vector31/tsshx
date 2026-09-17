@@ -29,7 +29,7 @@ window.Files = (() => {
       const tb = (icon, title, fn) => h('button', { class: 'icon-btn', title, onClick: fn }, Icon(icon));
       const sep = () => h('span', { class: 'sep' });
       this.btnFollow = tb('link', t('files.follow'), () => { this.follow = !this.follow; this.btnFollow.classList.toggle('on', this.follow); if (this.follow) { const tab = app.activeTab(); if (tab && tab.cwd) this.load(tab.cwd); } });
-      this.btnCd = tb('terminal', t('files.cdTerm'), () => { const tab = app.activeTab(); if (tab && this.fsId === 'sftp:' + tab.sessionId) tab.cd(this.path); });
+      this.btnCd = tb('terminal', t('files.cdTerm'), () => { const tab = app.activeTab(); if (tab && (this.fsId === 'sftp:' + tab.sessionId || (tab.local && this.fsId === 'local'))) tab.cd(this.path); });
       this.btnHidden = tb('eye', t('files.hidden') + ' (Ctrl+H)', () => { showHidden = !showHidden; localStorage.setItem('terhui.showHidden', showHidden ? '1' : '0'); panes.forEach(p => { p.btnHidden.classList.toggle('on', showHidden); p.render(); }); });
       this.btnHidden.classList.toggle('on', showHidden);
       this.tools = h('div', { class: 'pane-tools' },
@@ -73,7 +73,7 @@ window.Files = (() => {
 
     sources() {
       const list = [{ id: 'local', label: t('files.local') }];
-      for (const tab of app.panes()) if (tab.sessionId && tab.status === 'connected') list.push({ id: 'sftp:' + tab.sessionId, label: 'SFTP ' + tab.title });
+      for (const tab of app.panes()) if (!tab.local && tab.sessionId && tab.status === 'connected') list.push({ id: 'sftp:' + tab.sessionId, label: 'SFTP ' + tab.title });
       for (const [id, c] of ftpConns) list.push({ id, label: 'FTP ' + c.label });
       return list;
     }
@@ -86,11 +86,11 @@ window.Files = (() => {
         if (this.fsId !== 'local') { this.items = []; this.selected.clear(); this.render(t('files.noremote')); }
       }
       this.srcSel.value = srcs.some(s => s.id === cur) ? cur : this.fsId;
-      this.btnFollow.hidden = this.btnCd.hidden = !this.fsId.startsWith('sftp:');
+      this.btnFollow.hidden = this.btnCd.hidden = !(this.fsId.startsWith('sftp:') || (this.fsId === 'local' && app.activeTab() && app.activeTab().local));
     }
     async setSource(fsId, startPath) {
       this.fsId = fsId; this.srcSel.value = fsId; this.label = (this.sources().find(s => s.id === fsId) || {}).label || fsId;
-      this.btnFollow.hidden = this.btnCd.hidden = !fsId.startsWith('sftp:');
+      this.btnFollow.hidden = this.btnCd.hidden = !(fsId.startsWith('sftp:') || (fsId === 'local' && app.activeTab() && app.activeTab().local));
       this.selected.clear();
       let p = startPath;
       if (!p) {
@@ -233,7 +233,7 @@ window.Files = (() => {
     }
     menu(x, y) {
       const sel = this.selection(); const one = sel.length === 1 ? sel[0] : null; const local = this.fsId === 'local';
-      const tab = app.activeTab(); const isTabSftp = tab && this.fsId === 'sftp:' + tab.sessionId;
+      const tab = app.activeTab(); const isTabSftp = tab && (this.fsId === 'sftp:' + tab.sessionId || (tab.local && this.fsId === 'local'));
       UI.ctxmenu(x, y, [
         one ? { label: t('files.view'), kbd: 'Enter', onClick: () => this.activate(one) } : null,
         one && one.type !== 'd' ? { label: local ? 'Edit' : t('files.view'), kbd: 'F4', onClick: () => editFile(this.fsId, one.path, () => this.load(this.path)) } : null,
@@ -322,8 +322,9 @@ window.Files = (() => {
   function toggle() { visible() ? hide() : show(); }
   function refreshSources() { panes.forEach(p => p.refreshSources()); }
   /** Open remote pane for a session (optionally at a path). */
-  async function openFor({ sessionId, path, ftpHostId }) {
+  async function openFor({ sessionId, path, ftpHostId, local }) {
     show();
+    if (local) { await panes[1].setSource('local', path || undefined); panes[1].list.focus(); setActive(1); return; }
     if (ftpHostId) {
       try { const r = await window.api.fs.ftpConnect(ftpHostId); const hh = Hosts.byId(ftpHostId); ftpConns.set(r.fsId, { hostId: ftpHostId, label: hh ? hh.name : ftpHostId, home: r.home }); refreshSources(); await panes[1].setSource(r.fsId, (hh && hh.startDir) || r.home); }
       catch (e) { UI.errToast(e); }
@@ -332,7 +333,7 @@ window.Files = (() => {
     if (sessionId) { const fsId = 'sftp:' + sessionId; if (panes[1].fsId !== fsId || path) await panes[1].setSource(fsId, path); }
     panes[1].list.focus(); setActive(1);
   }
-  function onCwd(tab, path) { for (const p of panes) if (p.follow && p.fsId === 'sftp:' + tab.sessionId && visible()) p.load(path); }
+  function onCwd(tab, path) { for (const p of panes) if (p.follow && visible() && (tab.local ? p.fsId === 'local' : p.fsId === 'sftp:' + tab.sessionId)) p.load(path); }
   function onSessionsChanged() { refreshSources(); }
   function focus() { panes[activePane].list.focus(); }
   return { init, show, hide, toggle, openFor, onCwd, onSessionsChanged, refreshSources, visible, focus, editFile, get panes() { return panes; } };
