@@ -282,10 +282,20 @@ function registerIpc() {
   ipcMain.on('pty:write', (_e, { sessionId, data }) => shells.write(sessionId, data));
   ipcMain.on('pty:resize', (_e, { sessionId, cols, rows }) => shells.resize(sessionId, cols, rows));
   handle('pty:close', (sessionId) => { shells.kill(sessionId); return true; });
-  handle('history:fetchLocal', (hostKey) => {
-    const { parseBash, parseZsh, parseFish, mergeRank } = require('./history');
+  handle('history:fetchLocal', async (hostKey, opts = {}) => {
+    const { parseBash, parseZsh, parseFish, mergeRank, splitBlob, FETCH_CMD } = require('./history');
     const sources = [];
+    if (opts.wsl) {
+      // history lives inside the distro: run the same collector script there
+      const { execFile } = require('child_process');
+      const stdout = await new Promise((resolve, reject) => execFile('wsl.exe', ['-d', opts.wsl, '--', 'sh', '-c', FETCH_CMD], { encoding: 'utf8', maxBuffer: 32 * 1024 * 1024, windowsHide: true, timeout: 20000 }, (err, out) => (err && !out) ? reject(err) : resolve(out || '')));
+      for (const { file, text } of splitBlob(stdout)) { const kind = /zsh_history$/.test(file) ? 'zsh' : /fish_history$/.test(file) ? 'fish' : 'bash'; sources.push({ src: kind, entries: kind === 'zsh' ? parseZsh(text) : kind === 'fish' ? parseFish(text) : parseBash(text) }); }
+      sources.push({ src: 'terhui', entries: history.extras(hostKey) });
+      return { entries: mergeRank(sources), files: sources.map(s => s.src), pins: history.getPins(hostKey) };
+    }
+    const wanted = opts.kind === 'pwsh' ? new Set(['pwsh']) : opts.kind === 'cmd' ? new Set() : new Set(['bash', 'zsh', 'fish']);
     for (const { file, kind } of localHistoryFiles()) {
+      if (!wanted.has(kind)) continue;
       let text = ''; try { text = fs.readFileSync(file, 'utf8'); } catch (_) { continue; }
       const lines = text.split('\n'); if (lines.length > 8000) text = lines.slice(-8000).join('\n');
       sources.push({ src: kind, entries: kind === 'zsh' ? parseZsh(text) : kind === 'fish' ? parseFish(text) : parseBash(text) });

@@ -24,7 +24,7 @@ window.App = (() => {
   const paneCallbacks = {
     onStatus: (tb, st) => { renderTabs(); updateStatus(); Files.onSessionsChanged(); Hosts.render(); if (st === 'connected' && tb === app.activeTab()) Files.syncToTab(tb, true); },
     onTitle: (tb, title) => { if (tb === app.activeTab()) window.api.window.setTitle(`${title} — terhui`); renderTabs(); },
-    onCwd: (tb, p) => { Files.onCwd(tb, p); if (tb === app.activeTab()) updateStatus(); },
+    onCwd: (tb, p) => { console.debug('[cwd]', tb.id, tb.sessionId, p, 'active:', tb === app.activeTab()); Files.onCwd(tb, p); if (tb === app.activeTab()) updateStatus(); },
     onResize: (tb) => { if (tb === app.activeTab()) updateStatus(); },
     onZoom: (d) => app.zoom(d),
     onFocus: (tb) => { if (tb.group && tb.group.activePane !== tb) tb.group.focus(tb); },
@@ -49,6 +49,7 @@ window.App = (() => {
   app.focusNeighbor = (direction) => { const g = app.activeGroup(); const p = app.activeTab(); if (!g || !p) return; const n = g.neighbor(p, direction); if (n) g.focus(n); };
 
   function activateTab(id) {
+    console.debug('[tab] activate', id);
     app.activeId = id;
     for (const g of app.tabs) g.id === id ? g.show() : g.hide();
     $('#welcome').hidden = app.tabs.length > 0;

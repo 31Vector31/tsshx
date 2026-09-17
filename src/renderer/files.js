@@ -330,6 +330,7 @@ window.Files = (() => {
   async function applyFollow(p, tab) {
     if (!tab || !tab.sessionId || tab.status !== 'connected' || !visible()) return;
     const { fsId, path } = followTarget(tab);
+    console.debug('[follow] pane', p.idx, 'tab', tab.id, '→', fsId, path, '| pane was', p.fsId, p.path);
     if (p.fsId !== fsId) await p.setSource(fsId, path || undefined);
     else if (path && path !== p.path) await p.load(path);
   }
@@ -359,7 +360,7 @@ window.Files = (() => {
     if (sessionId) { const fsId = 'sftp:' + sessionId; if (panes[1].fsId !== fsId || path) await panes[1].setSource(fsId, path); }
     panes[1].list.focus(); setActive(1);
   }
-  function onCwd(tab) { if (tab !== app.activeTab()) return; for (const p of panes) if (p.follow) applyFollow(p, tab); }
+  function onCwd(tab) { if (tab !== app.activeTab()) { console.debug('[follow] ignore cwd from inactive', tab.id); return; } for (const p of panes) if (p.follow) applyFollow(p, tab); }
   function onSessionsChanged() { refreshSources(); }
   function focus() { panes[activePane].list.focus(); }
   return { init, show, hide, toggle, openFor, onCwd, onSessionsChanged, refreshSources, visible, focus, editFile, syncToTab, get panes() { return panes; } };
