@@ -40,6 +40,7 @@ const DEFAULT_SETTINGS = {
   windowFrame: 'integrated', winMaterial: 'none', chromeBg: '#202329', chromeFg: '#d4d7dd',
   shellIntegration: true, ctrlWClosesTab: false,
   localProfiles: null,   // null = not detected yet; [] = user removed all
+  recent: [],            // last connections shown in the sidebar footer
 };
 const IMAGE_EXT = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'avif'];
 

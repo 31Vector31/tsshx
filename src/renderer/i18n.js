@@ -51,6 +51,7 @@ window.I18N = (() => {
       'ago.now': 'только что', 'ago.m': '{n} мин назад', 'ago.h': '{n} ч назад', 'ago.d': '{n} дн назад', 'ago.mo': '{n} мес назад', 'ago.y': '{n} лет назад', 'hist.used': 'использовано {n} раз',
       'settings.ctrlW': 'Ctrl+W закрывает панель и внутри терминала (shell теряет удаление слова)',
       'stats.loadHint': 'Load average за 1 / 5 / 15 минут: число процессов, работающих или ждущих CPU (или диск). Сравнивайте с числом ядер после дроби: выше него хост перегружен.',
+      'recent.title': 'Недавние', 'recent.empty': 'Подключений ещё не было', 'recent.saveHost': 'Сохранить как хост…', 'recent.remove': 'Убрать из недавних', 'recent.clear': 'Очистить недавние',
       'files.name': 'Имя', 'files.size': 'Размер', 'files.modified': 'Изменён', 'files.mode': 'Права', 'tab.inactive': 'неактивно', 'settings.theme.pick': 'Цветовая схема',
     },
     en: {
@@ -103,6 +104,7 @@ window.I18N = (() => {
       'ago.now': 'just now', 'ago.m': '{n} min ago', 'ago.h': '{n} h ago', 'ago.d': '{n} days ago', 'ago.mo': '{n} months ago', 'ago.y': '{n} years ago', 'hist.used': 'used {n} times',
       'settings.ctrlW': 'Ctrl+W closes the pane inside the terminal too (shell loses delete-word)',
       'stats.loadHint': 'Load average over 1 / 5 / 15 minutes: number of processes running or waiting for CPU (or disk). Compare with the core count after the slash: above it the host is saturated.',
+      'recent.title': 'Recent', 'recent.empty': 'No connections yet', 'recent.saveHost': 'Save as host…', 'recent.remove': 'Remove from recent', 'recent.clear': 'Clear recent',
       'files.name': 'Name', 'files.size': 'Size', 'files.modified': 'Modified', 'files.mode': 'Mode', 'tab.inactive': 'inactive', 'settings.theme.pick': 'Colour scheme',
     },
   };

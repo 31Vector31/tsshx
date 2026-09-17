@@ -26,13 +26,13 @@
         <div class="sb-head">
           <input id="host-filter" type="search" data-i18n-placeholder="hosts.filter" placeholder="Filter hosts" autocomplete="off">
           <button id="btn-addhost" class="icon-btn" data-icon="plus" data-i18n-title="hosts.add" title="Add host"></button>
+          <button id="btn-lock" class="icon-btn" data-icon="lock" data-i18n-title="vault.lock" title="Lock vault (Ctrl+Shift+L)"></button>
         </div>
         <div id="host-list" class="host-list"></div>
         <div class="sb-foot">
           <input id="quick-connect" type="text" data-i18n-placeholder="hosts.quick" placeholder="user@host:port" autocomplete="off" spellcheck="false">
-          <div class="sb-actions">
-            <button id="btn-lock" class="mini" data-i18n="vault.lock">Lock</button>
-          </div>
+          <div class="recent-head"><span data-i18n="recent.title">Recent</span></div>
+          <div id="recent-list" class="recent"></div>
         </div>
       </aside>
       <div id="sidebar-resizer" class="resizer"></div>
@@ -108,6 +108,7 @@
   <script src="terminal.js"></script>
   <script src="panes.js"></script>
   <script src="hosts.js"></script>
+  <script src="recent.js"></script>
   <script src="files.js"></script>
   <script src="jump.js"></script>
   <script src="history.js"></script>

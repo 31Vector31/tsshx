@@ -22,7 +22,7 @@ window.App = (() => {
   app.onPaneFocus = (pane) => { updateStatus(); app.updateIndexStatus(); renderTabs(); Files.syncToTab(pane); app.refreshStats(); };
 
   const paneCallbacks = {
-    onStatus: (tb, st) => { renderTabs(); updateStatus(); Files.onSessionsChanged(); Hosts.render(); if (st === 'connected' && tb === app.activeTab()) { Files.syncToTab(tb, true); app.refreshStats(); } if (st !== 'connected' && tb === app.activeTab()) app.refreshStats(); },
+    onStatus: (tb, st) => { if (st === 'connected') Recent.add(tb); renderTabs(); updateStatus(); Files.onSessionsChanged(); Hosts.render(); if (st === 'connected' && tb === app.activeTab()) { Files.syncToTab(tb, true); app.refreshStats(); } if (st !== 'connected' && tb === app.activeTab()) app.refreshStats(); },
     onTitle: (tb, title) => { if (tb === app.activeTab()) window.api.window.setTitle(`${title} — terhui`); renderTabs(); },
     onCwd: (tb, p) => { console.debug('[cwd]', tb.id, tb.sessionId, p, 'active:', tb === app.activeTab()); Files.onCwd(tb, p); if (tb === app.activeTab()) updateStatus(); },
     onResize: (tb) => { if (tb === app.activeTab()) updateStatus(); },
@@ -40,6 +40,7 @@ window.App = (() => {
     activateTab(group.id);
     renderTabs();
     await pane.connect();
+    if (pane.status === 'connected') Recent.add(pane);
     return pane;
   };
   app.split = (dir, from, before) => { from = from || app.activeTab(); if (!from) return; if (!dir) { const r = from.wrap.getBoundingClientRect(); dir = r.width > r.height * 1.5 ? 'h' : 'v'; } return app.openTerminal({ hostId: from.hostId, entry: from.entry, profile: from.profile, from, dir, before }); };
@@ -397,7 +398,7 @@ window.App = (() => {
   }
   async function startUnlocked() {
     while (!(await vaultFlow())) { /* keep asking */ }
-    await Hosts.refresh();
+    await Hosts.refresh(); Recent.render();
     resetLockTimer();
   }
   function changeMaster() {
@@ -508,7 +509,7 @@ window.App = (() => {
     resizer($('#sidebar-resizer'), $('#sidebar'), 1, 'sidebarWidth');
     resizer($('#files-resizer'), $('#files'), -1, 'filePanelWidth');
     try { app.profiles = await window.api.profiles.list(); } catch (_) { app.profiles = []; }
-    Hosts.init(app); Files.init(app); Jump.init(app); History.init(app);
+    Hosts.init(app); Files.init(app); Jump.init(app); History.init(app); Recent.init(app);
     $('#btn-sidebar').addEventListener('click', toggleSidebar);
     $('#btn-newtab').addEventListener('click', () => { const sel = Hosts.selectedId; if (sel) Hosts.connectSelected(); else $('#quick-connect').focus(); });
     $('#btn-jump').addEventListener('click', () => Jump.open());

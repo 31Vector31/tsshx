@@ -82,7 +82,16 @@ kbd { font: 11px var(--mono); color: var(--fg2); border: 1px solid var(--border)
 .host .h-live { color: var(--accent2); font-size: 10px; }
 .host .h-color { width: 7px; height: 7px; border-radius: 1px; flex-shrink: 0; }
 .host.compact .h-sub { display: none; }
-.sb-foot { padding: 5px; border-top: 1px solid var(--border); display: flex; flex-direction: column; gap: 5px; }
+.sb-foot { padding: 5px; border-top: 1px solid var(--border); display: flex; flex-direction: column; gap: 4px; max-height: 45%; }
+.recent-head { display: flex; align-items: center; height: 18px; padding: 0 3px; color: var(--fg2); font-size: 11px; }
+.recent { overflow-y: auto; }
+.recent .rc { display: flex; align-items: center; gap: 6px; height: var(--row); padding: 0 4px; white-space: nowrap; }
+.recent .rc:hover { background: var(--hover); }
+.recent .rc .icon { color: var(--fg2); flex-shrink: 0; }
+.recent .rc .n { flex: 1; overflow: hidden; text-overflow: ellipsis; }
+.recent .rc .a { color: var(--fg2); font-size: 11px; }
+.recent .rc .u { color: var(--fg2); font-family: var(--mono); font-size: 10.5px; overflow: hidden; text-overflow: ellipsis; max-width: 45%; }
+.recent .empty { padding: 6px 4px; }
 .sb-foot input { width: 100%; font-family: var(--mono); font-size: 11.5px; }
 .sb-actions { display: flex; gap: 4px; }
 .sb-actions button { flex: 1; }
