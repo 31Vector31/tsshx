@@ -24,7 +24,9 @@ npm run dist:linux # AppImage + deb   (dist:win → Setup installer + portable e
   drag a tab from the tab bar onto the edge of a pane to dock that whole tab beside it, drag tabs to reorder, drag dividers to resize. Each pane is its own SSH session.
 - Tear-off windows: drag a tab out of the window (or "Move to new window" in its menu) to open it in a separate
   terminal-only window, e.g. on another monitor; splits and scrollback come along, the session is not interrupted.
-  "Move back to main window" returns it. Closing a torn-off window closes its sessions.
+  Tabs move between windows by drag & drop: drop one on another window's tab bar to add it there, or on the edge
+  of a pane to dock it beside that pane; the tab menu lists the other windows ("Move to window …",
+  "Move back to main window"). Closing a torn-off window closes its sessions.
 - Appearance: 12 built-in colour schemes, import of xterm / Windows Terminal JSON schemes,
   wallpaper (any image) with dim/blur/fit, terminal opacity, padding, font, cursor; the UI is tinted from the scheme.
 - Window: OS frame with Window Controls Overlay (tabs live in the title bar, native caption buttons, Win11 snap layouts and

@@ -153,16 +153,18 @@ window.TabGroup = (() => {
       const box = h('div', { class: 'pane-box' }, head, pane.wrap, hint);
       pane.wrap.style.flex = '';
       const zoneOf = (e) => { const r = box.getBoundingClientRect(); const x = (e.clientX - r.left) / r.width, y = (e.clientY - r.top) / r.height; const dx = Math.min(x, 1 - x), dy = Math.min(y, 1 - y); return dx < dy ? (x < 0.5 ? 'left' : 'right') : (y < 0.5 ? 'top' : 'bottom'); };
-      box.addEventListener('dragenter', (e) => { if (dragState) e.preventDefault(); });
+      box.addEventListener('dragenter', (e) => { if (dragState || app.remoteDrag) e.preventDefault(); });
       box.addEventListener('dragover', (e) => {
-        if (!dragState) return;
+        if (!dragState && !app.remoteDrag) return;
         e.preventDefault(); e.dataTransfer.dropEffect = 'move';
         const z = zoneOf(e); hint.hidden = false; hint.className = 'drop-hint ' + z;
       });
       box.addEventListener('dragleave', (e) => { if (!box.contains(e.relatedTarget)) hint.hidden = true; });
       box.addEventListener('drop', (e) => {
         hint.hidden = true;
-        const ds = dragState; if (!ds) return;
+        const ds = dragState;
+        if (!ds && app.remoteDrag) { e.preventDefault(); app.claimRemoteDrag({ paneId: pane.id, zone: zoneOf(e) }); return; }   // a tab from another window → dock it here
+        if (!ds) return;
         e.preventDefault(); endDrag();
         if (ds.kind === 'pane') { const moving = paneById.get(ds.id); if (moving) TabGroup.move(moving, pane, zoneOf(e)); }
         else {

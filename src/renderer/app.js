@@ -60,14 +60,26 @@ window.App = (() => {
     g.panes = []; app.dropGroup(g);
     if (app.detached && !app.tabs.length) window.api.window.closeSelf();
   };
-  /** From a detached window: send the tab back to the main window. */
-  app.attachToMain = async (g) => {
+  /** Serialize a tab for another window and drop it here (the sessions stay alive in main). */
+  function exportGroup(g) {
     const payload = { panes: g.panes.map(p => p.toPayload()), tree: g.serializeTree() };
-    try { await window.api.window.attachMain({ payload }); } catch (e) { UI.errToast(e); return; }
     for (const p of g.panes) p.release();
     g.panes = []; app.dropGroup(g);
-    if (!app.tabs.length) window.api.window.closeSelf();
+    if (app.detached && !app.tabs.length) window.api.window.closeSelf();
+    return payload;
+  }
+  /** Move a tab to an existing window ('main' or a window id from window.list). */
+  app.moveGroupTo = async (g, target) => {
+    const payload = { panes: g.panes.map(p => p.toPayload()), tree: g.serializeTree() };
+    try { await window.api.window.sendTab({ target, payload }); } catch (e) { UI.errToast(e); return; }
+    exportGroup(g);
   };
+  app.attachToMain = (g) => app.moveGroupTo(g, 'main');
+  // Cross-window drag: while a tab from another window is being dragged, our tab bar and pane edges accept it.
+  app.remoteDrag = null;
+  window.api.on('drag:state', (st) => { app.remoteDrag = st.active ? { id: st.id } : null; if (!st.active) { $('#tabs').classList.remove('drop'); document.querySelectorAll('.drop-hint').forEach(x => { x.hidden = true; }); } });
+  window.api.on('drag:export', ({ id, reqId }) => { const g = app.tabs.find(x => x.dragId === id); window.api.window.dragExported({ reqId, payload: g ? exportGroup(g) : null }); });
+  app.claimRemoteDrag = (dock) => { const rd = app.remoteDrag; if (!rd) return; app.remoteDrag = null; window.api.window.dragClaim({ id: rd.id, dock }).catch(UI.errToast); };
   /** Receive a tab from another window: rebuild the panes and take over their sessions. */
   window.api.on('detach:init', (payload) => {
     if (!app.ready) { const t = setInterval(() => { if (app.ready) { clearInterval(t); adoptPayload(payload); } }, 50); return; }   // the event can arrive before init() finished
@@ -77,9 +89,11 @@ window.App = (() => {
     const panes = payload.panes.map(p => { const pane = new TerminalTab({ hostId: p.hostId, entry: p.entry, profile: p.profile, settings: app.settings, callbacks: paneCallbacks }); pane.title = p.title; return pane; });
     const g = new TabGroup(app); app.tabs.push(g); $('#terminals').append(g.wrap);
     g.restore(payload.tree, panes);
-    activateTab(g.id);
     window.api.window.own(payload.panes.map(p => p.sessionId).filter(Boolean));
     panes.forEach((pane, i) => pane.adopt(payload.panes[i]));
+    const at = payload.dock && TabGroup.paneById(payload.dock.paneId);
+    if (at && at.group && at.group !== g) { TabGroup.dock(g, at, payload.dock.zone); activateTab(at.group.id); at.group.focus(panes[0]); }   // dropped on a pane edge → split beside it
+    else activateTab(g.id);
     renderTabs(); updateStatus();
   }
   app.focusNeighbor = (direction) => { const g = app.activeGroup(); const p = app.activeTab(); if (!g || !p) return; const n = g.neighbor(p, direction); if (n) g.focus(n); };
@@ -120,12 +134,14 @@ window.App = (() => {
     const box = $('#tabs'); box.innerHTML = '';
     if (!box._dnd) {   // drop a pane on the tab bar → its own tab; drag tabs to reorder
       box._dnd = true;
-      box.addEventListener('dragenter', (e) => { if (TabGroup.dragState) e.preventDefault(); });
-      box.addEventListener('dragover', (e) => { if (TabGroup.dragState) { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; box.classList.add('drop'); } });
+      box.addEventListener('dragenter', (e) => { if (TabGroup.dragState || app.remoteDrag) e.preventDefault(); });
+      box.addEventListener('dragover', (e) => { if (TabGroup.dragState || app.remoteDrag) { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; box.classList.add('drop'); } });
       box.addEventListener('dragleave', (e) => { if (!box.contains(e.relatedTarget)) box.classList.remove('drop'); });
       box.addEventListener('drop', (e) => {
         box.classList.remove('drop');
-        const ds = TabGroup.dragState; if (!ds) return;
+        const ds = TabGroup.dragState;
+        if (!ds && app.remoteDrag) { e.preventDefault(); app.claimRemoteDrag(null); return; }   // a tab from another window
+        if (!ds) return;
         e.preventDefault(); TabGroup.endDrag();
         if (ds.kind === 'pane') { const p = TabGroup.paneById(ds.id); if (p) app.detachPane(p); return; }
         const gid = ds.id;
@@ -155,19 +171,29 @@ window.App = (() => {
         ...segs,
         h('span', { class: 'close tab-close', title: t('close'), onClick: (e) => { e.stopPropagation(); closeTab(g.id); } }, Icon('close', 12)));
       el.draggable = true;
-      el.addEventListener('dragstart', (e) => { e.dataTransfer.setData('text/plain', g.id); e.dataTransfer.effectAllowed = 'move'; TabGroup.startDrag('tab', g.id); });
-      el.addEventListener('dragend', (e) => {
-        TabGroup.endDrag();
-        // dropped outside the window (no target accepted it and the pointer left the viewport) → tear the tab off
-        const outside = e.clientX < 0 || e.clientY < 0 || e.clientX > window.innerWidth || e.clientY > window.innerHeight;
-        if (e.dataTransfer.dropEffect === 'none' && outside && (app.tabs.length > 1 || app.detached)) app.detachGroup(g, e.screenX - 60, e.screenY - 20);
-        else if (e.dataTransfer.dropEffect === 'none' && outside && !app.detached) app.detachGroup(g, e.screenX - 60, e.screenY - 20);
+      el.addEventListener('dragstart', (e) => {
+        e.dataTransfer.setData('text/plain', g.id); e.dataTransfer.effectAllowed = 'move'; TabGroup.startDrag('tab', g.id);
+        g.dragId = Math.random().toString(36).slice(2); window.api.window.dragBegin({ id: g.dragId }).catch(() => {});   // other windows may take the drop
       });
-      el.addEventListener('contextmenu', (e) => { e.preventDefault(); activateTab(g.id); UI.ctxmenu(e.clientX, e.clientY, [
+      el.addEventListener('dragend', async (e) => {
+        TabGroup.endDrag();
+        const outside = e.clientX < 0 || e.clientY < 0 || e.clientX > window.innerWidth || e.clientY > window.innerHeight;
+        const noTarget = e.dataTransfer.dropEffect === 'none';
+        const id = g.dragId; let claimed = false;
+        try { ({ claimed } = await window.api.window.dragEnd({ id })); } catch (_) {}
+        if (claimed || !app.tabs.includes(g)) return;   // another window took the tab
+        // dropped outside every window (nothing accepted it and the pointer left the viewport) → tear the tab off
+        if (noTarget && outside) app.detachGroup(g, e.screenX - 60, e.screenY - 20);
+      });
+      el.addEventListener('contextmenu', async (e) => { e.preventDefault(); activateTab(g.id);
+        let others = []; try { others = await window.api.window.list(); } catch (_) {}
+        UI.ctxmenu(e.clientX, e.clientY, [
         { label: t('pane.splitRight'), kbd: IS_MAC ? 'Cmd+D' : 'Ctrl+Shift+5', onClick: () => app.split('h') },
         { label: t('pane.splitDown'), kbd: IS_MAC ? 'Cmd+Shift+D' : 'Ctrl+Shift+6', onClick: () => app.split('v') },
         { label: t('tab.duplicate'), onClick: () => app.openTerminal({ hostId: p.hostId, entry: p.entry, profile: p.profile }) },
-        app.detached ? { label: t('tab.attach'), onClick: () => app.attachToMain(g) } : { label: t('tab.detach'), onClick: () => app.detachGroup(g, window.screenX + 80, window.screenY + 80) },
+        '-',
+        { label: t('tab.detach'), onClick: () => app.detachGroup(g, window.screenX + 80, window.screenY + 80) },
+        ...others.map(w => ({ label: w.main ? t('tab.attach') : t('tab.moveTo', { title: w.title || 'terhui' }), onClick: () => app.moveGroupTo(g, w.id) })),
         '-',
         { label: t('menu.files'), onClick: () => p.local ? Files.openFor({ local: true, path: p.fsHome() }) : p.sessionId && Files.openFor({ sessionId: p.sessionId }), disabled: !p.sessionId },
         { label: t('tab.reconnect'), onClick: () => p.reconnect(), disabled: p.status === 'connected' },
@@ -598,10 +624,10 @@ window.App = (() => {
     $('#btn-settings').addEventListener('click', openSettings);
     $('#btn-lock').addEventListener('click', lock);
     window.addEventListener('resize', () => app.fitActive());
+    app.ready = true;   // tabs from other windows can be adopted from here on, even while the lock screen is up
     if (app.detached) { try { await Hosts.refresh(); } catch (_) {} }   // vault is already open in main; no lock screen here
     else { await startUnlocked(); if (app.settings.filePanelOpen) Files.show(); }
     startStats();
-    app.ready = true;
   }
   init().catch(err => { console.error(err); UI.toast(String(err), 'error', 10000); });
 

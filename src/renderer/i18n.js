@@ -57,7 +57,7 @@ window.I18N = (() => {
       'files.discard': 'Отменить несохранённые изменения?',
       'local.wslRestart': 'Перезапустить WSL: {d}', 'local.wslShutdown': 'Выключить весь WSL (wsl --shutdown)', 'local.wslRestart.confirm': 'Остановить дистрибутив {d}? Все процессы в нём будут убиты, открытые вкладки переподключатся сами.', 'local.wslShutdown.confirm': 'Выключить всю виртуальную машину WSL? Все дистрибутивы и их процессы остановятся, открытые вкладки переподключатся сами.', 'local.wslRestart.ok': 'Перезапустить', 'local.wslRestart.done': '{d} перезапущен', 'local.wslShutdown.done': 'WSL выключен',
       'menu.clearCache': 'Очистить кеш…', 'cache.text': 'Забыть всё, что terhui помнит о «{name}». Пригодится, если хост переустановили на том же адресе.', 'cache.index': 'Индекс каталогов', 'cache.history': 'История команд, добавленная из приложения, и закреплённые команды', 'cache.hostkey': 'Запомненный ключ хоста SSH (спросит заново при подключении)', 'cache.ok': 'Очистить', 'cache.done': 'Кеш очищен', 'cache.all': 'Очистить все кеши', 'cache.all.confirm': 'Удалить индексы каталогов и историю команд приложения для всех хостов? Ключи хостов остаются.',
-      'tab.detach': 'В отдельное окно', 'tab.attach': 'Вернуть в главное окно',
+      'tab.detach': 'В новое окно', 'tab.attach': 'Вернуть в главное окно', 'tab.moveTo': 'В окно «{title}»',
       'files.name': 'Имя', 'files.size': 'Размер', 'files.modified': 'Изменён', 'files.mode': 'Права', 'tab.inactive': 'неактивно', 'settings.theme.pick': 'Цветовая схема',
     },
     en: {
@@ -116,7 +116,7 @@ window.I18N = (() => {
       'files.discard': 'Discard unsaved changes?',
       'local.wslRestart': 'Restart WSL: {d}', 'local.wslShutdown': 'Shut down all WSL (wsl --shutdown)', 'local.wslRestart.confirm': 'Terminate the {d} distro? All processes in it will be killed; open tabs reconnect automatically.', 'local.wslShutdown.confirm': 'Shut down the whole WSL VM? All distros and their processes stop; open tabs reconnect automatically.', 'local.wslRestart.ok': 'Restart', 'local.wslRestart.done': '{d} restarted', 'local.wslShutdown.done': 'WSL shut down',
       'menu.clearCache': 'Clear cached data…', 'cache.text': 'Forget what terhui remembers about “{name}”. Useful after the host was reinstalled at the same address.', 'cache.index': 'Directory index', 'cache.history': 'Command history added from the app and pinned commands', 'cache.hostkey': 'Remembered SSH host key (will be asked again on next connect)', 'cache.ok': 'Clear', 'cache.done': 'Cache cleared', 'cache.all': 'Clear all caches', 'cache.all.confirm': 'Delete the directory indexes and app-side command history of all hosts? Remembered host keys are kept.',
-      'tab.detach': 'Move to new window', 'tab.attach': 'Move back to main window',
+      'tab.detach': 'Move to new window', 'tab.attach': 'Move back to main window', 'tab.moveTo': 'Move to window “{title}”',
       'files.name': 'Name', 'files.size': 'Size', 'files.modified': 'Modified', 'files.mode': 'Mode', 'tab.inactive': 'inactive', 'settings.theme.pick': 'Colour scheme',
     },
   };

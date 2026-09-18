@@ -149,7 +149,7 @@ function createDetachedWindow({ x, y, width, height }, payload) {
   w.webContents.once('did-finish-load', async () => {
     w.webContents.send('detach:init', payload); setTimeout(() => { if (!w.isDestroyed() && !w.isVisible()) w.show(); }, 150);
     if (process.env.TERHUI_AUTOSCRIPT2) { try { await w.webContents.executeJavaScript(fs.readFileSync(process.env.TERHUI_AUTOSCRIPT2, 'utf8'), true); } catch (err) { console.error('autoscript2 error', err); } }   // test hook
-    if (process.env.TERHUI_SCREENSHOT2) setTimeout(async () => { try { fs.writeFileSync(process.env.TERHUI_SCREENSHOT2, (await w.webContents.capturePage()).toPNG()); } catch (_) {} }, 3000);
+    if (process.env.TERHUI_SCREENSHOT2) { const [file, delay] = process.env.TERHUI_SCREENSHOT2.split(':'); setTimeout(async () => { try { fs.writeFileSync(file, (await w.webContents.capturePage()).toPNG()); } catch (_) {} }, Number(delay) || 3000); }
   });
   w.once('ready-to-show', () => w.show());
   w.on('enter-full-screen', () => w.webContents.send('window:fullscreen', true));
@@ -460,7 +460,41 @@ function registerIpc() {
   handle('window:setTitle', function (t) { const w = BrowserWindow.fromWebContents(this.sender); if (w) w.setTitle(t); return true; });
   // tear-off windows
   handle('window:detach', function ({ payload, x, y, width, height }) { createDetachedWindow({ x, y, width, height }, payload); return true; });
-  handle('window:attachMain', function ({ payload }) { if (!win || win.isDestroyed()) throw new Error('Main window is gone'); for (const p of payload.panes) if (p.sessionId) owners.set(p.sessionId, win.webContents); win.webContents.send('detach:init', payload); win.focus(); return true; });
+  handle('window:list', function () {   // other windows a tab can be moved to
+    const me = BrowserWindow.fromWebContents(this.sender);
+    return [...windows].filter(w => w !== me && !w.isDestroyed()).map(w => ({ id: w === win ? 'main' : w.id, main: w === win, title: w.getTitle().replace(/ — terhui$/, '') }));
+  });
+  handle('window:sendTab', function ({ target, payload, dock }) {   // hand a tab (its panes + sessions) to another window
+    const w = target === 'main' ? win : BrowserWindow.fromId(Number(target));
+    if (!w || w.isDestroyed()) throw new Error('Target window is gone');
+    for (const p of payload.panes) if (p.sessionId) owners.set(p.sessionId, w.webContents);
+    w.webContents.send('detach:init', { ...payload, dock: dock || null }); w.focus(); return true;
+  });
+  // Cross-window drag of a tab: the source announces the drag, every other window may accept the drop ("claim"),
+  // main then asks the source to export the tab and hands it to the claimer. The source learns on drag end
+  // whether someone claimed it (else a drop outside any window tears the tab off into a new one).
+  let drag = null;   // { id, source: webContents, claimed, exportReq }
+  const exportWaits = new Map();
+  const broadcastDrag = (state) => { for (const w of windows) if (!w.isDestroyed() && w.webContents !== (drag && drag.source)) w.webContents.send('drag:state', state); };
+  handle('drag:begin', function ({ id }) { drag = { id, source: this.sender, claimed: false }; broadcastDrag({ active: true, id }); return true; });
+  handle('drag:claim', async function ({ id, dock }) {
+    if (!drag || drag.id !== id || drag.claimed || drag.source === this.sender) return false;
+    drag.claimed = true;
+    const target = BrowserWindow.fromWebContents(this.sender); if (!target) return false;
+    const reqId = String(Date.now()) + Math.random();
+    const payload = await new Promise((resolve) => { exportWaits.set(reqId, resolve); if (!drag.source.isDestroyed()) drag.source.send('drag:export', { id, reqId }); setTimeout(() => { exportWaits.delete(reqId); resolve(null); }, 3000); });
+    if (!payload || target.isDestroyed()) return false;
+    for (const p of payload.panes) if (p.sessionId) owners.set(p.sessionId, target.webContents);
+    target.webContents.send('detach:init', { ...payload, dock: dock || null }); target.focus();
+    return true;
+  });
+  handle('drag:exported', function ({ reqId, payload }) { const r = exportWaits.get(reqId); if (r) { exportWaits.delete(reqId); r(payload); } return true; });
+  handle('drag:end', async function ({ id }) {
+    if (!drag || drag.id !== id) return { claimed: false };
+    if (!drag.claimed) await new Promise(r => setTimeout(r, 250));   // a claim from the drop target may still be in flight
+    const claimed = drag.claimed; broadcastDrag({ active: false }); drag = null;
+    return { claimed };
+  });
   handle('window:own', function (sessionIds) { for (const id of sessionIds || []) owners.set(id, this.sender); return true; });
   handle('window:closeSelf', function () { const w = BrowserWindow.fromWebContents(this.sender); if (w && w !== win) setTimeout(() => { if (!w.isDestroyed()) w.close(); }, 50); return true; });
   handle('window:info', function () { return { detached: BrowserWindow.fromWebContents(this.sender) !== win, platform: process.platform, frame: settings.windowFrame !== 'native' ? 'integrated' : 'native', material: process.platform === 'win32' ? (settings.winMaterial || 'none') : 'none', maximized: !!(win && win.isMaximized()) }; });
