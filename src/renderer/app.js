@@ -354,7 +354,7 @@ window.App = (() => {
     const root = document.documentElement;
     if (s.chromeFromTheme !== false) for (const [k, v] of Object.entries(Themes.chromeVars(theme))) root.style.setProperty(k, v);
     else for (const k of Object.keys(Themes.chromeVars(theme))) root.style.removeProperty(k);
-    root.style.setProperty('--mono', s.fontFamily);
+    root.style.setProperty('--mono', window.fontStack ? window.fontStack(s.fontFamily) : s.fontFamily);
     // code editor colours follow the terminal scheme
     const cmv = { '--cm-bg': theme.background, '--cm-fg': theme.foreground, '--cm-cursor': theme.cursor || theme.foreground, '--cm-sel': theme.selectionBackground || 'rgba(128,128,128,.3)',
       '--cm-kw': theme.blue, '--cm-str': theme.green, '--cm-num': theme.yellow, '--cm-atom': theme.magenta, '--cm-def': theme.cyan, '--cm-type': theme.brightYellow || theme.yellow, '--cm-meta': theme.red, '--cm-tag': theme.red };
@@ -685,6 +685,10 @@ window.App = (() => {
     $('#btn-settings').addEventListener('click', openSettings);
     $('#btn-lock').addEventListener('click', lock);
     window.addEventListener('resize', () => app.fitActive());
+    // The bundled Nerd Font symbols are a web font: give it a moment before the first terminal is built,
+    // and redraw the glyph atlas of open terminals once all fonts are in.
+    try { await Promise.race([document.fonts.load('16px "Symbols Nerd Font Mono"'), new Promise(r => setTimeout(r, 2500))]); } catch (_) {}
+    document.fonts.ready.then(() => { for (const p of app.panes()) p.refreshFont(); }).catch(() => {});
     app.ready = true;   // tabs from other windows can be adopted from here on, even while the lock screen is up
     if (app.detached) { try { await Hosts.refresh(); } catch (_) {} }   // vault is already open in main; no lock screen here
     else { await startUnlocked(); if (app.settings.filePanelOpen) Files.show(); }

@@ -12,6 +12,17 @@ window.TerminalTab = (() => {
 
   let seq = 1;
 
+  // Whatever font the user picked, the bundled symbols font and an emoji font are appended so Nerd Font
+  // icons and emoji render even when the chosen font has no glyph for them.
+  const FALLBACK = ['"Symbols Nerd Font Mono"', '"Noto Color Emoji"', '"Apple Color Emoji"', '"Segoe UI Emoji"', 'monospace'];
+  function fontStack(family) {
+    const want = String(family || '').trim();
+    const have = want.toLowerCase();
+    const extra = FALLBACK.filter(f => !have.includes(f.replace(/"/g, '').toLowerCase()));
+    return want ? (want.replace(/,\s*$/, '') + ', ' + extra.join(', ')) : extra.join(', ');
+  }
+  window.fontStack = fontStack;
+
   class TerminalTab {
     /**
      * @param {object} o { hostId, entry (public view or adhoc entry), settings, container, callbacks:{onTitle,onStatus,onCwd,onClosed} }
@@ -39,7 +50,7 @@ window.TerminalTab = (() => {
       const s = this.settings;
       const term = new Terminal({
         allowProposedApi: true,
-        fontFamily: s.fontFamily, fontSize: s.fontSize, lineHeight: s.lineHeight || 1.1,
+        fontFamily: fontStack(s.fontFamily), fontSize: s.fontSize, lineHeight: s.lineHeight || 1.1,
         theme: themeFor(s),
         scrollback: s.scrollback || 10000,
         cursorStyle: s.cursorStyle || 'block', cursorBlink: !!s.cursorBlink,
@@ -119,6 +130,11 @@ window.TerminalTab = (() => {
       if (text) this.term.paste(text);
     }
 
+    /** Re-render with the current font (after a web font finished loading the glyph atlas is stale). */
+    refreshFont() {
+      try { if (this.webgl) this.webgl.clearTextureAtlas(); else if (this.term.clearTextureAtlas) this.term.clearTextureAtlas(); } catch (_) {}
+      this.fitNow(); try { this.term.refresh(0, this.term.rows - 1); } catch (_) {}
+    }
     fitNow() {
       if (this.wrap.hidden || !this.wrap.isConnected || this.wrap.offsetWidth === 0) return;
       try { this.fit.fit(); } catch (_) {}
@@ -131,7 +147,7 @@ window.TerminalTab = (() => {
     applySettings(s) {
       this.settings = s;
       const t = this.term;
-      t.options.fontFamily = s.fontFamily; t.options.fontSize = s.fontSize; t.options.lineHeight = s.lineHeight || 1.1;
+      t.options.fontFamily = fontStack(s.fontFamily); t.options.fontSize = s.fontSize; t.options.lineHeight = s.lineHeight || 1.1;
       if (t.options.allowTransparency !== needsTransparency(s)) t.options.allowTransparency = needsTransparency(s);
       t.options.theme = themeFor(s); t.options.scrollback = s.scrollback; t.options.cursorStyle = s.cursorStyle; t.options.cursorBlink = !!s.cursorBlink;
       this.wrap.style.setProperty('--term-pad', (s.termPadding == null ? 10 : s.termPadding) + 'px');
