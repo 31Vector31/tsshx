@@ -180,7 +180,7 @@ window.TerminalTab = (() => {
       const cd = dir ? ` cd '${dir.replace(/'/g, "'\\''")}';` : '';
       const osc7 = 'printf "\\033]7;file://%s%s\\007" "$HOSTNAME" "$PWD"';
       const line = ` [ -n "$BASH" ] && { PROMPT_COMMAND='history -a;${osc7}'"\${PROMPT_COMMAND:+;$PROMPT_COMMAND}"; case "$(HISTTIMEFORMAT= history 1)" in *${tag}*) history -d $HISTCMD;; esac; }; [ -n "$ZSH_VERSION" ] && { setopt INC_APPEND_HISTORY; precmd(){ ${osc7.replace('$HOSTNAME', '$HOST')}; }; };${cd} #${tag}`;
-      this.si = { phase: 'wait', line, tagBytes: new TextEncoder().encode(tag), buf: [], bufLen: 0, timer: setTimeout(() => this._siSend(), 2500) };
+      this.si = { phase: 'wait', line, tagBytes: new TextEncoder().encode(tag), buf: [], bufLen: 0, timer: setTimeout(() => this._siSend(), 8000), quiet: null };
     }
     _siSend() {
       const si = this.si; if (!si || si.phase !== 'wait') return;
@@ -202,7 +202,10 @@ window.TerminalTab = (() => {
         this.term.write(data);
         // The prompt is most likely on screen when output ends with a prompt-like symbol and a space.
         const tail = new TextDecoder().decode(data.subarray(Math.max(0, data.length - 96))).replace(/\x1b\[[0-9;?]*[a-zA-Z]/g, '').replace(/\x1b\][^\x07]*\x07/g, '');
-        if (/[$#%>❯»→›]\s$/.test(tail)) this._siSend();
+        // send only once a prompt-like tail has been quiet for 400 ms: slow logins (Check Point Gaia, MOTD scripts)
+        // otherwise get the bootstrap typed ahead of the prompt and its echo cannot be hidden
+        clearTimeout(si.quiet);
+        if (/[$#%>❯»→›]\s$/.test(tail)) si.quiet = setTimeout(() => this._siSend(), 400);
         return;
       }
       si.buf.push(data); si.bufLen += data.length;
