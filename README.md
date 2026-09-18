@@ -44,7 +44,7 @@ npm run dist:linux # AppImage + deb   (dist:win → Setup installer + portable e
   Recent list in the sidebar (saved hosts, ad-hoc targets with "save as host", local shells).
 - Quick unlock (KeePassXC-style): after one password unlock the vault key is stored encrypted by the OS (Keychain / DPAPI)
   and released after Touch ID (macOS) or Windows Hello (Windows); the master password always works as a fallback and is
-  required after it is changed. Not offered on Linux. Settings → Security, or the checkbox on the unlock dialog.
+  required after it is changed. Not offered on Linux. Enabled in Settings → Security.
 - Host keys: trust-on-first-use with SHA256 fingerprint prompt, loud warning when a key changes; keyboard-interactive auth supported.
 
 **File manager (Ctrl+Shift+E / F11)**

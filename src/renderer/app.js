@@ -385,19 +385,14 @@ window.App = (() => {
       const pw = h('input', { type: 'password', autofocus: true, style: { width: '100%' }, placeholder: t('vault.master') });
       const pw2 = create ? h('input', { type: 'password', style: { width: '100%', marginTop: '6px' }, placeholder: t('vault.master2') }) : null;
       const err = h('div', { class: 'err', style: { minHeight: '18px', marginTop: '6px' } });
-      // offer to set quick unlock up right here when the OS supports it and it is not enabled yet
-      const enableCb = quick.method && !quick.enabled ? h('input', { type: 'checkbox' }) : null;
       const quickBtn = quick.method && quick.enabled && !create ? h('button', { class: 'primary', style: { width: '100%', marginBottom: '8px' }, onClick: () => tryQuick() }, Icon('key', 14), t('vault.quick.unlock', { m: quickName })) : null;
       const body = h('div', { class: 'vault-screen' },
         create ? h('p', { class: 'muted', style: { margin: '0 0 10px' } }, t('vault.create.text')) : null,
-        quickBtn, pw, pw2,
-        enableCb ? h('label', { class: 'row muted', style: { marginTop: '6px', gap: '6px' } }, enableCb, t('vault.quick.enable', { m: quickName })) : null,
-        err);
+        quickBtn, pw, pw2, err);
       const ctl = UI.modal({ title: t(create ? 'vault.create.title' : 'vault.unlock.title'), body, closeOnBack: false, width: '420px', buttons: [{ label: t(create ? 'vault.create' : 'vault.unlock'), primary: !quickBtn, onClick: async () => {
         try {
           if (create) { if (pw.value !== pw2.value) { err.textContent = t('vault.mismatch'); return UI.KEEP_OPEN; } if (!pw.value) return UI.KEEP_OPEN; await window.api.vault.create(pw.value); }
           else await window.api.vault.unlock(pw.value);
-          if (enableCb && enableCb.checked) { try { await window.api.quick.enable(); } catch (e) { UI.errToast(e); } }
           return true;
         } catch (e) { err.textContent = /BAD_PASSWORD|Wrong master/.test(e.message) ? t('vault.bad') : e.message; pw.select(); return UI.KEEP_OPEN; }
       } }], onKey: (e) => { if (e.key === 'Escape') { e.stopPropagation(); return true; } if (e.key === 'Enter' && quickBtn && !pw.value) { e.preventDefault(); tryQuick(); return true; } return false; } });
