@@ -226,6 +226,14 @@ function registerIpc() {
     if (r.canceled || !r.filePaths[0]) return null;
     return { path: r.filePaths[0], content: fs.readFileSync(r.filePaths[0], 'utf8') };
   });
+  // cached per-host data (directory index, app-side history, pins, remembered host key) — for hosts that were reinstalled
+  handle('cache:clear', ({ hostKey, index, history: hist, knownHost: hk }) => {
+    if (index) indexer.clear(hostKey);
+    if (hist) history.clearHost(hostKey);
+    if (hk && hk.host) knownHosts.remove(hk.host, hk.port || 22);
+    return true;
+  });
+  handle('cache:clearAll', () => { indexer.clearAll(); history.clearHost(null); return true; });
   handle('knownhosts:list', () => knownHosts.all());
   handle('knownhosts:remove', (host, port) => { knownHosts.remove(host, port); return true; });
 

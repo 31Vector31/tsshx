@@ -146,9 +146,25 @@ window.Hosts = (() => {
       { label: t('menu.edit'), onClick: () => edit(hh) },
       { label: t('menu.duplicate'), onClick: () => edit({ ...hh, id: '', name: hh.name + ' (copy)', hasPassword: false, hasPrivateKey: false, hasPassphrase: false }) },
       { label: t('menu.copyAddr'), onClick: () => { window.api.clipboard.write(`${hh.username ? hh.username + '@' : ''}${hh.host}`); UI.toast(t('copied'), 'ok', 1500); } },
+      { label: t('menu.clearCache'), onClick: () => clearCache(hh) },
       '-',
       { label: t('menu.delete'), onClick: async () => { if (await UI.confirm(t('host.delete.confirm', { name: hh.name || hh.host }), { danger: true, okLabel: t('delete') })) { await window.api.hosts.remove(hh.id); refresh(); } } },
     ]);
+  }
+
+  /** Forget cached data of a host that was reinstalled: directory index, app-side history/pins, remembered host key. */
+  function clearCache(hh) {
+    const cb = (k, on) => { const c = h('input', { type: 'checkbox' }); c.checked = on; return [c, h('label', { class: 'row', style: { gap: '6px' } }, c, t(k))]; };
+    const [cIdx, lIdx] = cb('cache.index', true), [cHist, lHist] = cb('cache.history', true), [cKey, lKey] = cb('cache.hostkey', true);
+    const body = h('div', null, h('p', { class: 'muted', style: { margin: '0 0 8px' } }, t('cache.text', { name: hh.name || hh.host })), lIdx, lHist, lKey);
+    UI.modal({ title: t('menu.clearCache'), body, buttons: [{ label: t('cancel'), value: null }, { label: t('cache.ok'), primary: true, onClick: async () => {
+      try {
+        await window.api.cache.clear({ hostKey: hh.id, index: cIdx.checked, history: cHist.checked, knownHost: cKey.checked ? { host: hh.host, port: hh.port } : null });
+        if (cHist.checked) History.forget(hh.id);
+        UI.toast(t('cache.done'), 'ok');
+      } catch (e) { UI.errToast(e); }
+      return true;
+    } }] });
   }
 
   /** Host editor. entry = public view (secrets shown as "kept") or null for new. */

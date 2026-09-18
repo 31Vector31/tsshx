@@ -95,5 +95,6 @@ window.History = (() => {
     } catch (err) { if (ctl) { status.textContent = (err.message || '').replace(/^Error invoking remote method '[^']+': (Error: )?/, ''); } }
   }
 
-  return { init, open };
+  const forget = (key) => cache.delete(key);
+  return { init, open, forget };
 })();

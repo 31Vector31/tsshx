@@ -356,6 +356,7 @@ window.App = (() => {
       h('label', null, ''), h('div', { class: 'row' },
         h('button', { onClick: () => Hosts.importSshConfig() }, t('hosts.importSsh')),
         h('button', { onClick: () => changeMaster() }, t('vault.changeMaster')),
+        h('button', { onClick: async () => { if (await UI.confirm(t('cache.all.confirm'), { danger: true, okLabel: t('cache.ok') })) { try { await window.api.cache.clearAll(); UI.toast(t('cache.done'), 'ok'); } catch (e) { UI.errToast(e); } } } }, t('cache.all')),
         h('button', { onClick: async () => { try { await window.api.hosts.exportFile(); } catch (e) { UI.errToast(e); } } }, t('hosts.export')),
         h('button', { onClick: async () => { try { const r = await window.api.hosts.importFile(); if (r) { UI.toast(t('hosts.imported', { n: r.added + r.updated }), 'ok'); Hosts.refresh(); } } catch (e) { UI.errToast(e); } } }, t('hosts.import'))),
       h('div', { class: 'hint full' }, t('settings.securityHint')),

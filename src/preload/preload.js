@@ -14,6 +14,7 @@ contextBridge.exposeInMainWorld('api', {
     list: invoke('hosts:list'), get: invoke('hosts:get'), save: invoke('hosts:save'), remove: invoke('hosts:remove'),
     importSshConfig: invoke('hosts:importSshConfig'), exportFile: invoke('hosts:exportFile'), importFile: invoke('hosts:importFile'), readKeyFile: invoke('hosts:readKeyFile'),
   },
+  cache: { clear: invoke('cache:clear'), clearAll: invoke('cache:clearAll') },
   knownHosts: { list: invoke('knownhosts:list'), remove: invoke('knownhosts:remove') },
   ssh: {
     connect: invoke('ssh:connect'), close: invoke('ssh:close'), exec: invoke('ssh:exec'),

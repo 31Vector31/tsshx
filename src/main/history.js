@@ -98,6 +98,12 @@ class HistoryStore {
     if (list.length > 500) list.splice(0, list.length - 500);
     this._save('history-extra.json', this.extra);
   }
+  /** Drop app-side history additions and pins for one host (or everything when hostKey is null). */
+  clearHost(hostKey) {
+    if (!this.extra) this.extra = this._load('history-extra.json'); if (!this.pins) this.pins = this._load('history-pins.json');
+    if (hostKey) { delete this.extra[hostKey]; delete this.pins[hostKey]; } else { this.extra = {}; this.pins = {}; }
+    this._save('history-extra.json', this.extra); this._save('history-pins.json', this.pins);
+  }
   extras(hostKey) { if (!this.extra) this.extra = this._load('history-extra.json'); return this.extra[hostKey] || []; }
   getPins(hostKey) { if (!this.pins) this.pins = this._load('history-pins.json'); return this.pins[hostKey] || []; }
   setPins(hostKey, list) { if (!this.pins) this.pins = this._load('history-pins.json'); this.pins[hostKey] = [...new Set(list.map(String))]; this._save('history-pins.json', this.pins); return this.pins[hostKey]; }

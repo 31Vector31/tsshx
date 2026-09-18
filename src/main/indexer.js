@@ -49,6 +49,7 @@ class Indexer extends EventEmitter {
     try { fs.unlinkSync(this._file(hostId)); } catch (_) {}
   }
 
+  clearAll() { this.cache.clear(); try { for (const f of fs.readdirSync(this.dir)) if (f.endsWith('.json.gz')) fs.unlinkSync(path.join(this.dir, f)); } catch (_) {} }
   cancel(hostId) { const b = this.building.get(hostId); if (b) b.cancel(); }
 
   _store(hostId, idx) {
