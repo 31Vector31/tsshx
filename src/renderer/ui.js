@@ -28,7 +28,7 @@ window.UI = (() => {
     let resolveP; const p = new Promise(r => { resolveP = r; });
     const back = h('div', { class: 'modal-back' + (top ? ' top' : '') });
     const box = h('div', { class: 'modal ' + cls, style: width ? { width } : undefined });
-    if (title) box.append(h('div', { class: 'modal-head' }, title));
+    if (title) box.append(h('div', { class: 'modal-head' }, title instanceof Node ? title : String(title)));
     const bodyEl = h('div', { class: 'modal-body' });
     if (typeof body === 'string') bodyEl.innerHTML = body; else if (body) bodyEl.append(body);
     box.append(bodyEl);

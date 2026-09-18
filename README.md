@@ -51,7 +51,7 @@ npm run dist:linux # AppImage + deb   (dist:win → Setup installer + portable e
 - Two panes, each can be Local, SFTP (same SSH connection as the tab, no second login) or FTP.
 - Copy between any two panes (F5) incl. recursive directories, background transfer queue with progress and cancel,
   mkdir (F7), new file, rename (F6), delete (F8), chmod, hidden files, type-to-filter, sort, drag & drop
-  (between panes and from the OS), built-in text editor (Ctrl+S), `cd` the terminal to the current folder,
+  (between panes and from the OS), built-in code editor (CodeMirror: syntax highlighting for ~100 languages by file name, line numbers, bracket matching, colours follow the terminal scheme, Ctrl+S saves), `cd` the terminal to the current folder,
   "follow terminal" mirrors the cwd of whichever pane is active (OSC 7 from shell integration), across panes and tabs.
 
 **Directory index (Ctrl+P)**

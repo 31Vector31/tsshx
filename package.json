@@ -30,7 +30,10 @@
       "!node_modules/.cache",
       "!**/*.map",
       "!**/test/**",
-      "!**/docs/**"
+      "!**/docs/**",
+      "!node_modules/codemirror/**/*_test.js",
+      "!node_modules/codemirror/**/test.js",
+      "!node_modules/codemirror/src/**"
     ],
     "asarUnpack": [
       "node_modules/cpu-features/**",
@@ -86,8 +89,9 @@
     "@xterm/addon-webgl": "^0.18.0",
     "@xterm/xterm": "^5.5.0",
     "basic-ftp": "^5.3.1",
-    "ssh2": "^1.17.0",
-    "node-pty": "^1.1.0"
+    "codemirror": "^5.65.21",
+    "node-pty": "^1.1.0",
+    "ssh2": "^1.17.0"
   },
   "devDependencies": {
     "electron": "^44.4.1",

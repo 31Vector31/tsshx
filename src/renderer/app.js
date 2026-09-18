@@ -228,6 +228,10 @@ window.App = (() => {
     if (s.chromeFromTheme !== false) for (const [k, v] of Object.entries(Themes.chromeVars(theme))) root.style.setProperty(k, v);
     else for (const k of Object.keys(Themes.chromeVars(theme))) root.style.removeProperty(k);
     root.style.setProperty('--mono', s.fontFamily);
+    // code editor colours follow the terminal scheme
+    const cmv = { '--cm-bg': theme.background, '--cm-fg': theme.foreground, '--cm-cursor': theme.cursor || theme.foreground, '--cm-sel': theme.selectionBackground || 'rgba(128,128,128,.3)',
+      '--cm-kw': theme.blue, '--cm-str': theme.green, '--cm-num': theme.yellow, '--cm-atom': theme.magenta, '--cm-def': theme.cyan, '--cm-type': theme.brightYellow || theme.yellow, '--cm-meta': theme.red, '--cm-tag': theme.red };
+    for (const [k, v] of Object.entries(cmv)) if (v) root.style.setProperty(k, v);
     // OS title bar / caption buttons follow the UI colours (debounced: theme changes fire this often)
     const cs = getComputedStyle(root); const bg2 = cs.getPropertyValue('--bg2').trim(), fg = cs.getPropertyValue('--fg').trim();
     if (bg2 !== app._chromeSent) { app._chromeSent = bg2; clearTimeout(app._chromeTimer); app._chromeTimer = setTimeout(() => window.api.window.chrome({ bg: bg2, fg }), 150); }

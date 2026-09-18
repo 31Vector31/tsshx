@@ -54,6 +54,7 @@ window.I18N = (() => {
       'recent.title': 'Недавние', 'recent.empty': 'Подключений ещё не было', 'recent.saveHost': 'Сохранить как хост…', 'recent.remove': 'Убрать из недавних', 'recent.clear': 'Очистить недавние',
       'vault.quick.unlock': 'Открыть через {m}', 'settings.quick': 'Быстрая разблокировка', 'settings.quick.label': 'Открывать через {m}', 'settings.quick.na': 'Недоступно на этой системе (нужен Touch ID или Windows Hello)', 'settings.quick.hint': 'Ключ хранилища лежит зашифрованным средствами ОС (Keychain / DPAPI) и выдаётся после проверки Touch ID / Windows Hello; мастер-пароль всегда работает как запасной.',
       'vault.unlock.text': 'Введите мастер-пароль, чтобы открыть хосты и ключи.', 'vault.show': 'Показать пароль', 'vault.quick.waiting': 'Ожидание {m}…',
+      'files.discard': 'Отменить несохранённые изменения?',
       'files.name': 'Имя', 'files.size': 'Размер', 'files.modified': 'Изменён', 'files.mode': 'Права', 'tab.inactive': 'неактивно', 'settings.theme.pick': 'Цветовая схема',
     },
     en: {
@@ -109,6 +110,7 @@ window.I18N = (() => {
       'recent.title': 'Recent', 'recent.empty': 'No connections yet', 'recent.saveHost': 'Save as host…', 'recent.remove': 'Remove from recent', 'recent.clear': 'Clear recent',
       'vault.quick.unlock': 'Unlock with {m}', 'settings.quick': 'Quick unlock', 'settings.quick.label': 'Unlock with {m}', 'settings.quick.na': 'Not available on this system (needs Touch ID or Windows Hello)', 'settings.quick.hint': 'The vault key is kept encrypted by the OS (Keychain / DPAPI) and released after a {m} check; the master password always works as a fallback.'.replace('{m}', 'Touch ID / Windows Hello'),
       'vault.unlock.text': 'Enter the master password to open your hosts and keys.', 'vault.show': 'Show password', 'vault.quick.waiting': 'Waiting for {m}…',
+      'files.discard': 'Discard unsaved changes?',
       'files.name': 'Name', 'files.size': 'Size', 'files.modified': 'Modified', 'files.mode': 'Mode', 'tab.inactive': 'inactive', 'settings.theme.pick': 'Colour scheme',
     },
   };

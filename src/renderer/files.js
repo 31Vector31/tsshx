@@ -264,15 +264,37 @@ window.Files = (() => {
   async function editFile(fsId, path, onSaved) {
     let r;
     try { r = await window.api.fs.readFile(fsId, path, 2 * 1024 * 1024); } catch (e) { UI.errToast(e); return; }
-    const ta = h('textarea', { spellcheck: 'false' }, r.text);
-    const ro = r.binary || r.truncated; if (ro) ta.readOnly = true;
+    const ro = r.binary || r.truncated;
     const note = r.binary ? t('files.binary') : r.truncated ? t('files.truncated', { n: r.text.length }) : '';
-    const body = h('div', { class: 'editor' }, note ? h('div', { class: 'warn', style: { marginBottom: '6px' } }, note) : null, ta);
-    const ctl = UI.modal({ title: path, body, closeOnBack: false, buttons: [
-      { label: t('close'), value: null },
-      ro ? null : { label: t('save'), primary: true, onClick: async () => { try { await window.api.fs.writeFile(fsId, path, ta.value); UI.toast(t('saved'), 'ok', 1500); onSaved && onSaved(); return true; } catch (e) { UI.errToast(e); return UI.KEEP_OPEN; } } },
-    ].filter(Boolean), onKey: (e) => { if ((e.ctrlKey || e.metaKey) && e.key === 's') { e.preventDefault(); if (!ro) ctl.el.querySelector('.modal-foot .primary').click(); return true; } if (e.key === 'Tab' && e.target === ta) { e.preventDefault(); const s = ta.selectionStart; ta.setRangeText('\t', s, ta.selectionEnd, 'end'); return true; } return false; } });
-    setTimeout(() => ta.focus(), 0);
+    const name = path.split(/[\\/]/).pop();
+    const info = (CodeMirror.findModeByFileName && CodeMirror.findModeByFileName(name)) || (/^(\.bashrc|\.zshrc|\.profile|\.bash_profile|\.env|Dockerfile|Makefile)$/i.test(name) ? { mode: /Dockerfile/i.test(name) ? 'dockerfile' : /Makefile/i.test(name) ? 'cmake' : 'shell', name: 'Shell' } : (/^#!.*\b(ba|z|k)?sh\b/.test(r.text.slice(0, 80)) ? { mode: 'shell', name: 'Shell' } : (/^#!.*python/.test(r.text.slice(0, 80)) ? { mode: 'python', name: 'Python' } : null)));
+    const langLabel = h('span', { class: 'ed-lang' }, info ? info.name : 'Plain text');
+    const posLabel = h('span', { class: 'ed-pos' }, '1:1');
+    const dirtyMark = h('span', { class: 'ed-dirty', hidden: true }, '●');
+    const host = h('div', { class: 'cm-host' });
+    const body = h('div', { class: 'editor' }, note ? h('div', { class: 'warn ed-note' }, note) : null, host);
+    let cm = null; let dirty = false;
+    const save = async () => {
+      if (ro || !cm) return true;
+      try { await window.api.fs.writeFile(fsId, path, cm.getValue()); dirty = false; dirtyMark.hidden = true; UI.toast(t('saved'), 'ok', 1200); onSaved && onSaved(); return true; }
+      catch (e) { UI.errToast(e); return false; }
+    };
+    const ctl = UI.modal({ title: h('div', { class: 'ed-head' }, h('span', { class: 'ed-path' }, path), dirtyMark, h('span', { class: 'spacer' }), posLabel, langLabel), body, cls: 'editor-modal', closeOnBack: false, buttons: [
+      { label: t('close'), onClick: async () => { if (dirty && !(await UI.confirm(t('files.discard')))) return UI.KEEP_OPEN; return null; } },
+      ro ? null : { label: t('save'), primary: true, onClick: async () => { await save(); return UI.KEEP_OPEN; } },   // save keeps the editor open, like an IDE
+    ].filter(Boolean), onKey: (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') { e.preventDefault(); save(); return true; }
+      if (e.key === 'Escape') { e.stopPropagation(); ctl.el.querySelector('.modal-foot button').click(); return true; }
+      return e.target.closest('.CodeMirror') ? true : false;   // let CodeMirror own every other key
+    } });
+    CodeMirror.modeURL = '../../node_modules/codemirror/mode/%N/%N.js';
+    const text = r.text; const useTabs = /^\t/m.test(text);
+    cm = CodeMirror(host, { value: text, mode: info ? (info.mime || info.mode) : 'text/plain', theme: 'terhui', lineNumbers: true, lineWrapping: false, readOnly: ro ? 'nocursor' : false,
+      indentUnit: useTabs ? 4 : 2, indentWithTabs: useTabs, tabSize: 4, styleActiveLine: true, matchBrackets: true, viewportMargin: 50, extraKeys: { Tab: (c) => (c.somethingSelected() ? c.indentSelection('add') : c.replaceSelection(useTabs ? '\t' : ' '.repeat(c.getOption('indentUnit')))), 'Shift-Tab': (c) => c.indentSelection('subtract') } });
+    if (info && info.mode && info.mode !== 'null') { try { CodeMirror.autoLoadMode(cm, info.mode); } catch (_) {} }
+    cm.on('change', () => { if (!dirty) { dirty = true; dirtyMark.hidden = false; } });
+    cm.on('cursorActivity', () => { const c = cm.getCursor(); posLabel.textContent = `${c.line + 1}:${c.ch + 1}`; });
+    setTimeout(() => { cm.refresh(); cm.focus(); }, 0);
     return ctl.promise;
   }
 
