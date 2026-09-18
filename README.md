@@ -20,13 +20,15 @@ npm run dist:linux # AppImage + deb   (dist:win → Setup installer + portable e
 - Reconnect on `Enter` after a dropped session, `Ctrl+Scroll` / `Ctrl +`/`-` zoom.
 - Split panes inside a tab: `Ctrl+Shift+5` right, `Ctrl+Shift+6` down, `Ctrl+Shift+D` auto (macOS: `Cmd+D` right, `Cmd+Shift+D` down),
   `Ctrl/Cmd+Shift+arrows` move focus between panes (`Alt+arrows` too on Windows/Linux), `Ctrl+Shift+Enter` maximise/restore, `Ctrl+Shift+W` closes the pane. Mouse: split/maximise/close buttons in the
-  pane header, drag a pane by its header onto the edge of another pane to re-dock it or onto the tab bar to make it a tab,
-  drag a tab from the tab bar onto the edge of a pane to dock that whole tab beside it, drag tabs to reorder, drag dividers to resize. Each pane is its own SSH session.
+  pane header, drag a pane by its header onto the edge of another pane to re-dock it or onto a tab bar to make it a tab,
+  drag a tab onto the edge of a pane to dock that whole tab beside it, drag tabs to reorder, drag dividers to resize. Each pane is its own SSH session.
 - Tear-off windows: drag a tab out of the window (or "Move to new window" in its menu) to open it in a separate
   terminal-only window, e.g. on another monitor; splits and scrollback come along, the session is not interrupted.
-  Tabs move between windows by drag & drop: drop one on another window's tab bar to add it there, or on the edge
-  of a pane to dock it beside that pane; the tab menu lists the other windows ("Move to window …",
-  "Move back to main window"). Closing a torn-off window closes its sessions.
+  Tabs and panes move between windows by dragging them (JetBrains style): a chip follows the cursor across the
+  screen, the target window shows where it will land, and dropping it on a tab bar inserts it at that position,
+  on the edge of a pane docks it beside that pane, outside every window opens a new one. `Esc` cancels.
+  The tab menu lists the other windows too ("Move to window …", "Move back to main window").
+  Closing a torn-off window closes its sessions.
 - Appearance: 12 built-in colour schemes, import of xterm / Windows Terminal JSON schemes,
   wallpaper (any image) with dim/blur/fit, terminal opacity, padding, font, cursor; the UI is tinted from the scheme.
 - Window: OS frame with Window Controls Overlay (tabs live in the title bar, native caption buttons, Win11 snap layouts and

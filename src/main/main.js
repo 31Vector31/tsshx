@@ -1,5 +1,5 @@
 'use strict';
-const { app, BrowserWindow, ipcMain, dialog, clipboard, shell, Menu, nativeTheme } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, clipboard, shell, Menu, nativeTheme, screen } = require('electron');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
@@ -111,6 +111,8 @@ function handle(channel, fn) {
 // owning webContents that receives its data. Falls back to the main window when the owner is gone.
 const owners = new Map();   // sessionId -> webContents
 const windows = new Set();  // all BrowserWindows (main + detached)
+const focusOrder = [];      // most recently focused first (to pick the topmost window under the cursor)
+function trackWindow(w) { windows.add(w); focusOrder.unshift(w); w.on('focus', () => { const i = focusOrder.indexOf(w); if (i > 0) { focusOrder.splice(i, 1); focusOrder.unshift(w); } }); w.on('closed', () => { windows.delete(w); const i = focusOrder.indexOf(w); if (i >= 0) focusOrder.splice(i, 1); }); }
 function sendSession(sessionId, channel, payload) {
   const wc = owners.get(sessionId);
   if (wc && !wc.isDestroyed()) wc.send(channel, payload);
@@ -143,12 +145,12 @@ function createDetachedWindow({ x, y, width, height }, payload) {
     icon: path.join(__dirname, '../../assets/icon.png'),
     webPreferences: { preload: path.join(__dirname, '../preload/preload.js'), contextIsolation: true, sandbox: true, nodeIntegration: false, spellcheck: false },
   });
-  windows.add(w);
+  trackWindow(w);
   for (const p of payload.panes) if (p.sessionId) owners.set(p.sessionId, w.webContents);
   w.loadFile(path.join(__dirname, '../renderer/index.html'), { query: { detached: '1' } });
   w.webContents.once('did-finish-load', async () => {
     w.webContents.send('detach:init', payload); setTimeout(() => { if (!w.isDestroyed() && !w.isVisible()) w.show(); }, 150);
-    if (process.env.TERHUI_AUTOSCRIPT2) { try { await w.webContents.executeJavaScript(fs.readFileSync(process.env.TERHUI_AUTOSCRIPT2, 'utf8'), true); } catch (err) { console.error('autoscript2 error', err); } }   // test hook
+    if (process.env.TERHUI_AUTOSCRIPT2) { try { if (process.env.TERHUI_PROBE) await w.webContents.executeJavaScript(fs.readFileSync(process.env.TERHUI_PROBE, 'utf8'), true); } catch (_) {} try { await w.webContents.executeJavaScript(fs.readFileSync(process.env.TERHUI_AUTOSCRIPT2, 'utf8'), true); } catch (err) { console.error('autoscript2 error', err); } }   // test hook
     if (process.env.TERHUI_SCREENSHOT2) { const [file, delay] = process.env.TERHUI_SCREENSHOT2.split(':'); setTimeout(async () => { try { fs.writeFileSync(file, (await w.webContents.capturePage()).toPNG()); } catch (_) {} }, Number(delay) || 3000); }
   });
   w.once('ready-to-show', () => w.show());
@@ -164,7 +166,6 @@ function createDetachedWindow({ x, y, width, height }, payload) {
     }
     for (const id of mine) killSession(id);
   });
-  w.on('closed', () => windows.delete(w));
   return w;
 }
 
@@ -177,7 +178,7 @@ function createWindow() {
     icon: path.join(__dirname, '../../assets/icon.png'),
     webPreferences: { preload: path.join(__dirname, '../preload/preload.js'), contextIsolation: true, sandbox: true, nodeIntegration: false, spellcheck: false },
   });
-  windows.add(win);
+  trackWindow(win);
   win.loadFile(path.join(__dirname, '../renderer/index.html'));
   // Show as soon as anything is ready. On some Windows setups 'ready-to-show' never fires for a
   // titleBarOverlay window, so 'did-finish-load' and a hard timer are fallbacks — never stay hidden.
@@ -195,7 +196,7 @@ function createWindow() {
     if (bad || process.env.TERHUI_DEBUG) logLine('renderer', level === 'error' || level === 3 ? 'ERROR' : 'warn', message, `${source}:${line}`);
   });
   logLine('window created', { platform: process.platform, electron: process.versions.electron, frame: frameOpts, safe: SAFE_MODE, userData: app.getPath('userData') });
-  win.on('closed', () => { windows.delete(win); win = null; });
+  win.on('closed', () => { win = null; });
   win.on('enter-full-screen', () => send('window:fullscreen', true));
   win.on('leave-full-screen', () => send('window:fullscreen', false));
   win.webContents.setWindowOpenHandler(({ url }) => { if (/^https?:/.test(url)) shell.openExternal(url); return { action: 'deny' }; });
@@ -219,6 +220,7 @@ function createWindow() {
   // Debug helpers (used by automated checks): TERHUI_AUTOSCRIPT=<js file>, TERHUI_SCREENSHOT=<png path>[:delayMs]
   win.webContents.on('did-finish-load', async () => {
     if (process.env.TERHUI_AUTOSCRIPT) {
+      try { if (process.env.TERHUI_PROBE) await win.webContents.executeJavaScript(fs.readFileSync(process.env.TERHUI_PROBE, 'utf8'), true); } catch (_) {}
       try { await win.webContents.executeJavaScript(fs.readFileSync(process.env.TERHUI_AUTOSCRIPT, 'utf8'), true); } catch (err) { console.error('autoscript error', err); }
     }
     if (process.env.TERHUI_SCREENSHOT) {
@@ -470,31 +472,63 @@ function registerIpc() {
     for (const p of payload.panes) if (p.sessionId) owners.set(p.sessionId, w.webContents);
     w.webContents.send('detach:init', { ...payload, dock: dock || null }); w.focus(); return true;
   });
-  // Cross-window drag of a tab: the source announces the drag, every other window may accept the drop ("claim"),
-  // main then asks the source to export the tab and hands it to the claimer. The source learns on drag end
-  // whether someone claimed it (else a drop outside any window tears the tab off into a new one).
-  let drag = null;   // { id, source: webContents, claimed, exportReq }
-  const exportWaits = new Map();
-  const broadcastDrag = (state) => { for (const w of windows) if (!w.isDestroyed() && w.webContents !== (drag && drag.source)) w.webContents.send('drag:state', state); };
-  handle('drag:begin', function ({ id }) { drag = { id, source: this.sender, claimed: false }; broadcastDrag({ active: true, id }); return true; });
-  handle('drag:claim', async function ({ id, dock }) {
-    if (!drag || drag.id !== id || drag.claimed || drag.source === this.sender) return false;
-    drag.claimed = true;
-    const target = BrowserWindow.fromWebContents(this.sender); if (!target) return false;
-    const reqId = String(Date.now()) + Math.random();
-    const payload = await new Promise((resolve) => { exportWaits.set(reqId, resolve); if (!drag.source.isDestroyed()) drag.source.send('drag:export', { id, reqId }); setTimeout(() => { exportWaits.delete(reqId); resolve(null); }, 3000); });
-    if (!payload || target.isDestroyed()) return false;
-    for (const p of payload.panes) if (p.sessionId) owners.set(p.sessionId, target.webContents);
-    target.webContents.send('detach:init', { ...payload, dock: dock || null }); target.focus();
+  // Tab / pane drag (JetBrains style, no HTML5 drag-and-drop): the renderer tracks the pointer, main draws a
+  // ghost window that follows the cursor across the screen, finds the window under the cursor and forwards
+  // the position to it as hover events; on release the window under the cursor decides what to do with the drop.
+  let drag = null;   // { id, kind, source: webContents, hoverWin, ghost, timer }
+  const pending = new Map();   // reqId -> resolve
+  const ask = (wc, channel, msg, timeout) => new Promise((resolve) => { const reqId = String(Date.now()) + Math.random(); pending.set(reqId, resolve); if (!wc.isDestroyed()) wc.send(channel, { ...msg, reqId }); setTimeout(() => { if (pending.delete(reqId)) resolve(null); }, timeout); });
+  const covers = (w, pt) => { if (w.isDestroyed() || !w.isVisible() || w.isMinimized()) return false; const b = w.getContentBounds(); return pt.x >= b.x && pt.x < b.x + b.width && pt.y >= b.y && pt.y < b.y + b.height; };
+  // Which window is under the cursor. Electron cannot read the stacking order, so the focused window wins: a
+  // drag starts with a click, which raises its window, and otherwise the most recently focused one is on top.
+  const windowAt = (pt) => {
+    const src = drag && drag.source && !drag.source.isDestroyed() ? BrowserWindow.fromWebContents(drag.source) : null;
+    if (src && src.isFocused() && covers(src, pt)) return src;
+    for (const w of [...focusOrder, ...windows]) if (covers(w, pt)) return w;
+    return null;
+  };
+  const dragStop = () => { if (!drag) return; clearInterval(drag.timer); if (drag.ghost && !drag.ghost.isDestroyed()) drag.ghost.destroy(); if (drag.hoverWin && !drag.hoverWin.isDestroyed()) drag.hoverWin.webContents.send('drag:leave', {}); drag = null; };
+  const makeGhost = ({ title, color }, pt) => {
+    const width = Math.min(260, 44 + Math.round(String(title || '').length * 7.2));
+    const g = new BrowserWindow({ width, height: 30, x: pt.x + 14, y: pt.y + 10, frame: false, transparent: true, alwaysOnTop: true, skipTaskbar: true, focusable: false, resizable: false, movable: false, minimizable: false, maximizable: false, hasShadow: false, show: false, webPreferences: { sandbox: true, contextIsolation: true } });
+    g.setIgnoreMouseEvents(true); g.setAlwaysOnTop(true, 'pop-up-menu');
+    g.loadFile(path.join(__dirname, '../renderer/ghost.html'), { query: { title: String(title || ''), color: String(color || ''), bg: settings.chromeBg, fg: settings.chromeFg } });
+    g.webContents.once('did-finish-load', () => { if (!g.isDestroyed() && drag && drag.ghost === g) g.showInactive(); });
+    return g;
+  };
+  handle('drag:begin', function ({ id, kind, title, color }) {
+    dragStop();
+    const pt = screen.getCursorScreenPoint();
+    drag = { id, kind, source: this.sender, hoverWin: null, ghost: null, timer: null };
+    try { drag.ghost = makeGhost({ title, color }, pt); } catch (err) { logLine('ghost window failed', err.message); }
+    drag.timer = setInterval(() => {
+      if (!drag) return;
+      const p = screen.getCursorScreenPoint();
+      if (drag.ghost && !drag.ghost.isDestroyed()) drag.ghost.setPosition(p.x + 14, p.y + 10);
+      const w = windowAt(p);
+      if (w !== drag.hoverWin) { if (drag.hoverWin && !drag.hoverWin.isDestroyed()) drag.hoverWin.webContents.send('drag:leave', {}); drag.hoverWin = w; }
+      if (w && w.webContents !== drag.source) { const b = w.getContentBounds(); w.webContents.send('drag:hover', { id, kind, x: p.x - b.x, y: p.y - b.y }); }   // the source window tracks its own pointer
+    }, 16);
     return true;
   });
-  handle('drag:exported', function ({ reqId, payload }) { const r = exportWaits.get(reqId); if (r) { exportWaits.delete(reqId); r(payload); } return true; });
+  handle('drag:cancel', function () { dragStop(); return true; });
   handle('drag:end', async function ({ id }) {
-    if (!drag || drag.id !== id) return { claimed: false };
-    if (!drag.claimed) await new Promise(r => setTimeout(r, 250));   // a claim from the drop target may still be in flight
-    const claimed = drag.claimed; broadcastDrag({ active: false }); drag = null;
-    return { claimed };
+    if (!drag || drag.id !== id) return { none: true };
+    const d = drag; const p = screen.getCursorScreenPoint(); const target = windowAt(p);
+    clearInterval(d.timer); if (d.ghost && !d.ghost.isDestroyed()) d.ghost.destroy();
+    if (!target) { drag = null; return { outside: true, x: p.x, y: p.y }; }
+    if (target.webContents === d.source) { drag = null; return { self: true }; }
+    const b = target.getContentBounds();
+    const res = await ask(target.webContents, 'drag:drop', { id, kind: d.kind, x: p.x - b.x, y: p.y - b.y }, 2000);   // { accepted, dock }
+    if (!res || !res.accepted) { drag = null; return { claimed: false }; }
+    const payload = await ask(d.source, 'drag:export', { id }, 3000);
+    drag = null;
+    if (!payload || target.isDestroyed()) return { claimed: false };
+    for (const pp of payload.panes) if (pp.sessionId) owners.set(pp.sessionId, target.webContents);
+    target.webContents.send('detach:init', { ...payload, dock: res.dock || null }); target.focus();
+    return { claimed: true };
   });
+  handle('drag:reply', function ({ reqId, result }) { const r = pending.get(reqId); if (r) { pending.delete(reqId); r(result); } return true; });
   handle('window:own', function (sessionIds) { for (const id of sessionIds || []) owners.set(id, this.sender); return true; });
   handle('window:closeSelf', function () { const w = BrowserWindow.fromWebContents(this.sender); if (w && w !== win) setTimeout(() => { if (!w.isDestroyed()) w.close(); }, 50); return true; });
   handle('window:info', function () { return { detached: BrowserWindow.fromWebContents(this.sender) !== win, platform: process.platform, frame: settings.windowFrame !== 'native' ? 'integrated' : 'native', material: process.platform === 'win32' ? (settings.winMaterial || 'none') : 'none', maximized: !!(win && win.isMaximized()) }; });

@@ -6,12 +6,10 @@
 window.TabGroup = (() => {
   const { h } = UI;
   let seq = 1;
-  const DND = 'application/x-terhui-pane';
   const paneById = new Map();
-  // Drag state is tracked here instead of dataTransfer: on Windows custom MIME types are not visible during
-  // dragover and getData() is empty in drop, which made every target reject the drag (🚫 cursor).
-  let dragState = null; // { kind: 'pane'|'tab', id }
-  const endDrag = () => { dragState = null; document.body.classList.remove('pane-dragging'); document.querySelectorAll('.drop-hint').forEach(x => { x.hidden = true; }); };
+  // Drag & drop of panes/tabs is pointer based (see app.js dragArm/dragHover), not HTML5 DnD: on Windows custom
+  // MIME types are invisible during dragover, the OS shows a 🚫 cursor outside drop zones and it cannot
+  // cross windows. Pane boxes only expose their pane and drop hint for the hit test here.
 
   class TabGroup {
     constructor(app) {
@@ -140,46 +138,18 @@ window.TabGroup = (() => {
     _paneBox(pane) {
       const app = this.app;
       const btn = (icon, title, fn) => h('button', { class: 'icon-btn', title, onClick: (e) => { e.stopPropagation(); fn(); } }, Icon(icon, 14));
-      const head = h('div', { class: 'pane-head', draggable: 'true', title: t('pane.dragHint') },
+      const head = h('div', { class: 'pane-head', title: t('pane.dragHint') },
         h('span', { class: 'grip' }, Icon('menu', 12)),
         h('span', { class: 'pt' }, pane.local ? pane.profile.name : `${pane.entry.username ? pane.entry.username + '@' : ''}${pane.entry.host}`),
         h('span', { class: 'spacer' }),
         btn('splitH', t('pane.splitRight'), () => app.split('h', pane)), btn('splitV', t('pane.splitDown'), () => app.split('v', pane)),
         btn('maximize', t('pane.maximize'), () => this.toggleMaximize()), btn('close', t('pane.close'), () => app.closePane(pane)));
       head.addEventListener('mousedown', () => this.focus(pane));
-      head.addEventListener('dragstart', (e) => { e.dataTransfer.setData(DND, pane.id); e.dataTransfer.setData('text/plain', pane.id); e.dataTransfer.effectAllowed = 'move'; dragState = { kind: 'pane', id: pane.id }; document.body.classList.add('pane-dragging'); });
-      head.addEventListener('dragend', endDrag);
+      head.addEventListener('pointerdown', (e) => { if (e.button !== 0 || e.target.closest('button')) return; app.dragArm && app.dragArm(e, { kind: 'pane', id: pane.id }); });
       const hint = h('div', { class: 'drop-hint', hidden: true });
       const box = h('div', { class: 'pane-box' }, head, pane.wrap, hint);
+      box._pane = pane; box._hint = hint;
       pane.wrap.style.flex = '';
-      const zoneOf = (e) => { const r = box.getBoundingClientRect(); const x = (e.clientX - r.left) / r.width, y = (e.clientY - r.top) / r.height; const dx = Math.min(x, 1 - x), dy = Math.min(y, 1 - y); return dx < dy ? (x < 0.5 ? 'left' : 'right') : (y < 0.5 ? 'top' : 'bottom'); };
-      box.addEventListener('dragenter', (e) => { if (dragState || app.remoteDrag) e.preventDefault(); });
-      box.addEventListener('dragover', (e) => {
-        if (!dragState && !app.remoteDrag) return;
-        e.preventDefault(); e.dataTransfer.dropEffect = 'move';
-        const z = zoneOf(e); hint.hidden = false; hint.className = 'drop-hint ' + z;
-      });
-      box.addEventListener('dragleave', (e) => { if (!box.contains(e.relatedTarget)) hint.hidden = true; });
-      box.addEventListener('drop', (e) => {
-        hint.hidden = true;
-        const ds = dragState;
-        if (!ds && app.remoteDrag) { e.preventDefault(); app.claimRemoteDrag({ paneId: pane.id, zone: zoneOf(e) }); return; }   // a tab from another window → dock it here
-        if (!ds) return;
-        e.preventDefault(); endDrag();
-        if (ds.kind === 'pane') { const moving = paneById.get(ds.id); if (moving) TabGroup.move(moving, pane, zoneOf(e)); }
-        else {
-          const g = app.tabs.find(x => x.id === ds.id); const zone = zoneOf(e);
-          if (g && g !== pane.group) TabGroup.dock(g, pane, zone);
-          else if (g) {
-            // The active tab dropped onto its own area: it takes the chosen side, the neighbouring tab
-            // (the one before it in the tab strip, else the one after) fills the other side.
-            const idx = app.tabs.indexOf(g); const other = app.tabs[idx - 1] || app.tabs[idx + 1];
-            const opposite = { left: 'right', right: 'left', top: 'bottom', bottom: 'top' }[zone];
-            if (other) TabGroup.dock(other, pane, opposite);
-          }
-        }
-        app.renderTabs && app.renderTabs();
-      });
       return box;
     }
     _divider(node, i, container) {
@@ -205,10 +175,18 @@ window.TabGroup = (() => {
       return d;
     }
   }
-  TabGroup.DND = DND;
   TabGroup.paneById = (id) => paneById.get(id);
-  TabGroup.startDrag = (kind, id) => { dragState = { kind, id }; document.body.classList.add('pane-dragging'); };
-  TabGroup.endDrag = endDrag;
-  Object.defineProperty(TabGroup, 'dragState', { get: () => dragState });
+  /** Drop a dragged tab (`g`) or pane onto `target` pane's `zone` inside this window. */
+  TabGroup.dropOn = (app, g, pane, target, zone) => {
+    if (pane) { TabGroup.move(pane, target, zone); return; }
+    if (g && g !== target.group) { TabGroup.dock(g, target, zone); return; }
+    if (g) {
+      // The active tab dropped onto its own area: it takes the chosen side, the neighbouring tab
+      // (the one before it in the tab strip, else the one after) fills the other side.
+      const idx = app.tabs.indexOf(g); const other = app.tabs[idx - 1] || app.tabs[idx + 1];
+      const opposite = { left: 'right', right: 'left', top: 'bottom', bottom: 'top' }[zone];
+      if (other) TabGroup.dock(other, target, opposite);
+    }
+  };
   return TabGroup;
 })();

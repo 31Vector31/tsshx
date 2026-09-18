@@ -40,7 +40,10 @@ kbd { font: 11px var(--mono); color: var(--fg2); border: 1px solid var(--border)
 /* top bar / tabs */
 #topbar { display: flex; align-items: stretch; height: 32px; background: var(--bg2); border-bottom: 1px solid var(--border); flex-shrink: 0; }
 #topbar .icon-btn { align-self: center; margin: 0 2px; }
-#tabs { display: flex; overflow-x: auto; overflow-y: hidden; scrollbar-width: none; }
+#tabs { display: flex; overflow-x: auto; overflow-y: hidden; scrollbar-width: none; position: relative; }
+.tab-ins { position: absolute; top: 5px; bottom: 5px; width: 2px; margin-left: -1px; background: var(--accent); pointer-events: none; z-index: 2; }
+body.pane-dragging { user-select: none; cursor: grabbing; }
+body.pane-dragging .tab, body.pane-dragging .pane-head { cursor: grabbing; }
 .tab { display: flex; align-items: center; gap: 6px; padding: 0 6px 0 12px; min-width: 120px; max-width: 220px; border-right: 1px solid var(--border); color: var(--fg2); position: relative; background: var(--bg2); }
 .tab:first-child { border-left: 1px solid var(--border); }
 .tab.active { background: var(--bg); color: var(--fg); margin-bottom: -1px; border-bottom: 1px solid var(--bg); }

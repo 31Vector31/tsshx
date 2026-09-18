@@ -75,11 +75,104 @@ window.App = (() => {
     exportGroup(g);
   };
   app.attachToMain = (g) => app.moveGroupTo(g, 'main');
-  // Cross-window drag: while a tab from another window is being dragged, our tab bar and pane edges accept it.
-  app.remoteDrag = null;
-  window.api.on('drag:state', (st) => { app.remoteDrag = st.active ? { id: st.id } : null; if (!st.active) { $('#tabs').classList.remove('drop'); document.querySelectorAll('.drop-hint').forEach(x => { x.hidden = true; }); } });
-  window.api.on('drag:export', ({ id, reqId }) => { const g = app.tabs.find(x => x.dragId === id); window.api.window.dragExported({ reqId, payload: g ? exportGroup(g) : null }); });
-  app.claimRemoteDrag = (dock) => { const rd = app.remoteDrag; if (!rd) return; app.remoteDrag = null; window.api.window.dragClaim({ id: rd.id, dock }).catch(UI.errToast); };
+  // ---- drag & drop of tabs and panes (pointer based; works across windows, no OS drag cursor) ----
+  // Source: pointerdown arms, moving >6px starts; main draws a ghost chip that follows the cursor over the whole
+  // screen and tells whichever window is under the cursor where the pointer is. Targets: the tab strip (insert
+  // at a position) and the edges of panes (dock beside). Released over no window → new window at that spot.
+  let drag = null;   // { kind:'tab'|'pane', id, dragId, x0, y0, started, pointerId }
+  app.dropTarget = null;
+  const colorOf = (pane) => { if (!pane) return ''; if (pane.local) return (pane.profile && pane.profile.color) || ''; const hh = pane.hostId ? Hosts.byId(pane.hostId) : null; return (hh && hh.color) || ''; };
+  const dragSubject = (d) => d.kind === 'tab' ? { g: app.tabs.find(x => x.id === d.id) || null, pane: null } : { g: null, pane: TabGroup.paneById(d.id) || null };
+  const payloadOf = (d) => { const { g, pane } = dragSubject(d); if (g) return { panes: g.panes.map(p => p.toPayload()), tree: g.serializeTree() }; if (pane) return { panes: [pane.toPayload()], tree: { type: 'leaf', pane: 0 } }; return null; };
+  /** Drop the dragged tab/pane from this window (its sessions live on in main and move to another window). */
+  const releaseDrag = (d) => {
+    const { g, pane } = dragSubject(d);
+    if (g) { for (const p of g.panes) p.release(); g.panes = []; app.dropGroup(g); }
+    else if (pane) { const src = pane.group; const left = src ? src.remove(pane) : 0; pane.release(); if (src && left === 0) app.dropGroup(src); renderTabs(); }
+    if (app.detached && !app.tabs.length) window.api.window.closeSelf();
+  };
+  const clearHints = () => { app.dropTarget = null; $('#tabs').classList.remove('drop'); document.querySelectorAll('.tab-ins').forEach(x => x.remove()); document.querySelectorAll('.drop-hint').forEach(x => { x.hidden = true; }); };
+  /** Hit-test a pointer position (client coords) and show the matching drop hint. */
+  app.dragHover = (kind, x, y) => {
+    clearHints();
+    const el = document.elementFromPoint(x, y); if (!el) return;
+    const tabs = el.closest('#tabs');
+    if (tabs) {
+      const els = [...tabs.querySelectorAll('.tab')]; let index = els.length, left = 0;
+      const r0 = tabs.getBoundingClientRect();
+      for (let i = 0; i < els.length; i++) { const r = els[i].getBoundingClientRect(); if (x < r.left + r.width / 2) { index = i; left = r.left - r0.left + tabs.scrollLeft; break; } left = r.right - r0.left + tabs.scrollLeft; }
+      tabs.classList.add('drop'); tabs.append(h('div', { class: 'tab-ins', style: { left: left + 'px' } }));
+      app.dropTarget = { kind: 'tabs', index }; return;
+    }
+    const box = el.closest('.pane-box');
+    if (box && box._pane) {
+      const r = box.getBoundingClientRect(); const px = (x - r.left) / r.width, py = (y - r.top) / r.height; const dx = Math.min(px, 1 - px), dy = Math.min(py, 1 - py);
+      const zone = dx < dy ? (px < 0.5 ? 'left' : 'right') : (py < 0.5 ? 'top' : 'bottom');
+      box._hint.hidden = false; box._hint.className = 'drop-hint ' + zone;
+      app.dropTarget = { kind: 'pane', pane: box._pane, zone };
+    }
+  };
+  /** Perform a drop of this window's own drag onto this window's current drop target. */
+  const localDrop = (d, t) => {
+    const { g, pane } = dragSubject(d); if (!t || (!g && !pane)) return;
+    if (t.kind === 'tabs') {
+      let grp = g;
+      if (pane) { if (pane.group && pane.group.panes.length < 2) grp = pane.group; else { app.detachPane(pane); grp = pane.group; } }
+      const from = app.tabs.indexOf(grp); if (from < 0) return;
+      let to = t.index; app.tabs.splice(from, 1); if (to > from) to--; app.tabs.splice(Math.max(0, Math.min(to, app.tabs.length)), 0, grp);
+    } else if (t.kind === 'pane') {
+      if (pane && pane === t.pane) return;
+      TabGroup.dropOn(app, g, pane, t.pane, t.zone);
+    }
+    renderTabs();
+  };
+  const dragCleanup = () => {
+    if (drag && drag.started) { try { document.documentElement.releasePointerCapture(drag.pointerId); } catch (_) {} }
+    document.removeEventListener('pointermove', onDragMove); document.removeEventListener('pointerup', onDragUp); document.removeEventListener('keydown', onDragKey, true);
+    document.body.classList.remove('pane-dragging'); clearHints(); drag = null;
+  };
+  const onDragKey = (e) => { if (e.key === 'Escape' && drag) { e.preventDefault(); if (drag.started) window.api.window.dragCancel({ id: drag.dragId }).catch(() => {}); dragCleanup(); } };
+  const onDragMove = (e) => {
+    if (!drag) return;
+    if (!drag.started) {
+      if (Math.hypot(e.clientX - drag.x0, e.clientY - drag.y0) < 6) return;
+      drag.started = true; drag.dragId = Math.random().toString(36).slice(2);
+      try { document.documentElement.setPointerCapture(drag.pointerId); } catch (_) {}   // keep getting pointer events outside the window
+      document.body.classList.add('pane-dragging');
+      const { g, pane } = dragSubject(drag); const p = pane || (g && (g.activePane || g.panes[0]));
+      window.api.window.dragBegin({ id: drag.dragId, kind: drag.kind, title: g ? g.title : (p ? p.title : ''), color: colorOf(p) }).catch(() => {});
+    }
+    const inside = e.clientX >= 0 && e.clientY >= 0 && e.clientX < window.innerWidth && e.clientY < window.innerHeight;
+    if (inside) app.dragHover(drag.kind, e.clientX, e.clientY); else clearHints();
+  };
+  const onDragUp = async (e) => {
+    const d = drag; if (!d) return;
+    if (!d.started) { dragCleanup(); return; }
+    const target = app.dropTarget; app._lastDrag = d;
+    const stop = (ev) => { ev.stopPropagation(); ev.preventDefault(); }; document.addEventListener('click', stop, { capture: true, once: true }); setTimeout(() => document.removeEventListener('click', stop, { capture: true }), 0);   // no tab click after a drag
+    dragCleanup();
+    let r = null; try { r = await window.api.window.dragEnd({ id: d.dragId }); } catch (_) {}
+    if (!r || r.claimed) return;   // another window took it (or the drag was already cancelled)
+    if (r.self) { localDrop(d, target); return; }
+    if (r.outside) { const payload = payloadOf(d); if (!payload) return; const rect = $('#terminals').getBoundingClientRect(); try { await window.api.window.detach({ payload, x: r.x - 60, y: r.y - 20, width: Math.round(Math.min(rect.width + 20, 1000)), height: Math.round(Math.min(rect.height + 90, 700)) }); } catch (err) { UI.errToast(err); return; } releaseDrag(d); }
+  };
+  /** Start tracking a possible drag from a tab or pane header (called on pointerdown). */
+  app.dragArm = (e, { kind, id }) => {
+    if (drag) dragCleanup();
+    drag = { kind, id, x0: e.clientX, y0: e.clientY, started: false, pointerId: e.pointerId, dragId: null };
+    document.addEventListener('pointermove', onDragMove); document.addEventListener('pointerup', onDragUp); document.addEventListener('keydown', onDragKey, true);
+  };
+  // Another window's drag over this window: show hints, answer the drop, hand the tab over on request.
+  window.api.on('drag:hover', ({ kind, x, y }) => { if (!drag) app.dragHover(kind, x, y); });
+  window.api.on('drag:leave', () => { if (!drag) clearHints(); });
+  window.api.on('drag:drop', ({ reqId, kind, x, y }) => {
+    if (document.querySelector('.lock-screen')) return window.api.window.dragReply({ reqId, result: { accepted: false } });   // locked vault: do not take tabs
+    app.dragHover(kind, x, y); const t = app.dropTarget; clearHints();
+    const dock = !t ? { tabIndex: app.tabs.length }   // dropped somewhere else in this window → append to its tab strip
+      : t.kind === 'pane' ? { paneId: t.pane.id, zone: t.zone } : { tabIndex: t.index };
+    window.api.window.dragReply({ reqId, result: { accepted: true, dock } });
+  });
+  window.api.on('drag:export', ({ reqId, id }) => { const d = drag && drag.dragId === id ? drag : app._lastDrag; const payload = d ? payloadOf(d) : null; if (d && payload) releaseDrag(d); window.api.window.dragReply({ reqId, result: payload }); });
   /** Receive a tab from another window: rebuild the panes and take over their sessions. */
   window.api.on('detach:init', (payload) => {
     if (!app.ready) { const t = setInterval(() => { if (app.ready) { clearInterval(t); adoptPayload(payload); } }, 50); return; }   // the event can arrive before init() finished
@@ -91,9 +184,12 @@ window.App = (() => {
     g.restore(payload.tree, panes);
     window.api.window.own(payload.panes.map(p => p.sessionId).filter(Boolean));
     panes.forEach((pane, i) => pane.adopt(payload.panes[i]));
-    const at = payload.dock && TabGroup.paneById(payload.dock.paneId);
+    const at = payload.dock && payload.dock.paneId ? TabGroup.paneById(payload.dock.paneId) : null;
     if (at && at.group && at.group !== g) { TabGroup.dock(g, at, payload.dock.zone); activateTab(at.group.id); at.group.focus(panes[0]); }   // dropped on a pane edge → split beside it
-    else activateTab(g.id);
+    else {
+      if (payload.dock && Number.isFinite(payload.dock.tabIndex)) { app.tabs.pop(); app.tabs.splice(Math.max(0, Math.min(payload.dock.tabIndex, app.tabs.length)), 0, g); }   // dropped on the tab strip at a position
+      activateTab(g.id);
+    }
     renderTabs(); updateStatus();
   }
   app.focusNeighbor = (direction) => { const g = app.activeGroup(); const p = app.activeTab(); if (!g || !p) return; const n = g.neighbor(p, direction); if (n) g.focus(n); };
@@ -132,27 +228,6 @@ window.App = (() => {
 
   function renderTabs() {
     const box = $('#tabs'); box.innerHTML = '';
-    if (!box._dnd) {   // drop a pane on the tab bar → its own tab; drag tabs to reorder
-      box._dnd = true;
-      box.addEventListener('dragenter', (e) => { if (TabGroup.dragState || app.remoteDrag) e.preventDefault(); });
-      box.addEventListener('dragover', (e) => { if (TabGroup.dragState || app.remoteDrag) { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; box.classList.add('drop'); } });
-      box.addEventListener('dragleave', (e) => { if (!box.contains(e.relatedTarget)) box.classList.remove('drop'); });
-      box.addEventListener('drop', (e) => {
-        box.classList.remove('drop');
-        const ds = TabGroup.dragState;
-        if (!ds && app.remoteDrag) { e.preventDefault(); app.claimRemoteDrag(null); return; }   // a tab from another window
-        if (!ds) return;
-        e.preventDefault(); TabGroup.endDrag();
-        if (ds.kind === 'pane') { const p = TabGroup.paneById(ds.id); if (p) app.detachPane(p); return; }
-        const gid = ds.id;
-        {
-          const from = app.tabs.findIndex(g => g.id === gid); if (from < 0) return;
-          const over = e.target.closest('.tab'); let to = app.tabs.length - 1;
-          if (over) { const r = over.getBoundingClientRect(); to = app.tabs.findIndex(g => g.id === over.dataset.id) + (e.clientX > r.left + r.width / 2 ? 1 : 0); }
-          const [g] = app.tabs.splice(from, 1); if (to > from) to--; app.tabs.splice(Math.max(0, Math.min(to, app.tabs.length)), 0, g); renderTabs();
-        }
-      });
-    }
     for (const g of app.tabs) {
       const p = g.activePane || g.panes[0]; if (!p) continue;
       const hh = p.hostId ? Hosts.byId(p.hostId) : null;
@@ -170,21 +245,7 @@ window.App = (() => {
         !split && hh && hh.color ? h('span', { class: 'hc', style: { background: hh.color } }) : null,
         ...segs,
         h('span', { class: 'close tab-close', title: t('close'), onClick: (e) => { e.stopPropagation(); closeTab(g.id); } }, Icon('close', 12)));
-      el.draggable = true;
-      el.addEventListener('dragstart', (e) => {
-        e.dataTransfer.setData('text/plain', g.id); e.dataTransfer.effectAllowed = 'move'; TabGroup.startDrag('tab', g.id);
-        g.dragId = Math.random().toString(36).slice(2); window.api.window.dragBegin({ id: g.dragId }).catch(() => {});   // other windows may take the drop
-      });
-      el.addEventListener('dragend', async (e) => {
-        TabGroup.endDrag();
-        const outside = e.clientX < 0 || e.clientY < 0 || e.clientX > window.innerWidth || e.clientY > window.innerHeight;
-        const noTarget = e.dataTransfer.dropEffect === 'none';
-        const id = g.dragId; let claimed = false;
-        try { ({ claimed } = await window.api.window.dragEnd({ id })); } catch (_) {}
-        if (claimed || !app.tabs.includes(g)) return;   // another window took the tab
-        // dropped outside every window (nothing accepted it and the pointer left the viewport) → tear the tab off
-        if (noTarget && outside) app.detachGroup(g, e.screenX - 60, e.screenY - 20);
-      });
+      el.addEventListener('pointerdown', (e) => { if (e.button !== 0 || e.target.closest('.tab-close')) return; app.dragArm(e, { kind: 'tab', id: g.id }); });
       el.addEventListener('contextmenu', async (e) => { e.preventDefault(); activateTab(g.id);
         let others = []; try { others = await window.api.window.list(); } catch (_) {}
         UI.ctxmenu(e.clientX, e.clientY, [
