@@ -29,6 +29,7 @@ contextBridge.exposeInMainWorld('api', {
   index: { info: invoke('index:info'), build: invoke('index:build'), search: invoke('index:search'), cancel: invoke('index:cancel'), clear: invoke('index:clear') },
   history: { fetch: invoke('history:fetch'), fetchLocal: invoke('history:fetchLocal'), note: invoke('history:note'), pins: invoke('history:pins') },
   stats: { get: invoke('stats:get') },
+  wsl: { restart: invoke('wsl:restart') },
   profiles: { list: invoke('profiles:list'), detect: invoke('profiles:detect'), save: invoke('profiles:save') },
   pty: { spawn: invoke('pty:spawn'), close: invoke('pty:close'), write: (sessionId, data) => ipcRenderer.send('pty:write', { sessionId, data }), resize: (sessionId, cols, rows) => ipcRenderer.send('pty:resize', { sessionId, cols, rows }) },
   dialog: { open: invoke('dialog:open'), save: invoke('dialog:save'), confirm: invoke('dialog:confirm') },

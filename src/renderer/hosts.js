@@ -92,12 +92,23 @@ window.Hosts = (() => {
       row.addEventListener('contextmenu', (e) => { e.preventDefault(); e.stopPropagation(); UI.ctxmenu(e.clientX, e.clientY, [
         { label: t('menu.open'), onClick: () => app.openTerminal({ profile: p }) },
         { label: t('pane.splitRight'), onClick: () => { const from = app.activeTab(); if (from) app.openTerminal({ profile: p, from, dir: 'h' }); else app.openTerminal({ profile: p }); } },
+        p.wsl ? '-' : null,
+        p.wsl ? { label: t('local.wslRestart', { d: p.wsl }), onClick: () => restartWsl(p.wsl) } : null,
+        p.wsl ? { label: t('local.wslShutdown'), onClick: () => restartWsl(null) } : null,
         '-', { label: t('menu.edit'), onClick: () => editProfile(p) },
         { label: t('menu.duplicate'), onClick: () => editProfile({ ...p, id: '', name: p.name + ' (copy)' }) },
         { label: t('local.add'), onClick: () => editProfile(null) }, { label: t('local.redetect'), onClick: redetect },
         '-', { label: t('menu.delete'), onClick: async () => { if (await UI.confirm(t('host.delete.confirm', { name: p.name }), { danger: true, okLabel: t('delete') })) { app.profiles = await window.api.profiles.save(app.profiles.filter(x => x.id !== p.id)); render(); } } }]); });
       list.append(row);
     }
+  }
+  /** wsl --terminate <distro> (or --shutdown for all), then reconnect the open panes of that distro. */
+  async function restartWsl(distro) {
+    if (!await UI.confirm(distro ? t('local.wslRestart.confirm', { d: distro }) : t('local.wslShutdown.confirm'), { danger: true, okLabel: t('local.wslRestart.ok') })) return;
+    try { await window.api.wsl.restart(distro); } catch (e) { UI.errToast(e); return; }
+    UI.toast(distro ? t('local.wslRestart.done', { d: distro }) : t('local.wslShutdown.done'), 'ok');
+    await new Promise(r => setTimeout(r, 800));
+    for (const p of app.panes()) if (p.local && p.profile.wsl && (!distro || p.profile.wsl === distro)) { try { p.term.reset(); await p.connect(); } catch (_) {} }
   }
   async function redetect() { const found = await window.api.profiles.detect(); const known = new Set(app.profiles.map(p => p.command + JSON.stringify(p.args || []))); const fresh = found.filter(p => !known.has(p.command + JSON.stringify(p.args || []))); app.profiles = await window.api.profiles.save([...app.profiles, ...fresh.map(p => ({ ...p, id: 'local-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6) }))]); UI.toast(t('hosts.imported', { n: fresh.length }), 'ok'); render(); }
   function editProfile(p) {

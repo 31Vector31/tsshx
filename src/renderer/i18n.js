@@ -55,6 +55,7 @@ window.I18N = (() => {
       'vault.quick.unlock': 'Открыть через {m}', 'settings.quick': 'Быстрая разблокировка', 'settings.quick.label': 'Открывать через {m}', 'settings.quick.na': 'Недоступно на этой системе (нужен Touch ID или Windows Hello)', 'settings.quick.hint': 'Ключ хранилища лежит зашифрованным средствами ОС (Keychain / DPAPI) и выдаётся после проверки Touch ID / Windows Hello; мастер-пароль всегда работает как запасной.',
       'vault.unlock.text': 'Введите мастер-пароль, чтобы открыть хосты и ключи.', 'vault.show': 'Показать пароль', 'vault.quick.waiting': 'Ожидание {m}…',
       'files.discard': 'Отменить несохранённые изменения?',
+      'local.wslRestart': 'Перезапустить WSL: {d}', 'local.wslShutdown': 'Выключить весь WSL (wsl --shutdown)', 'local.wslRestart.confirm': 'Остановить дистрибутив {d}? Все процессы в нём будут убиты, открытые вкладки переподключатся сами.', 'local.wslShutdown.confirm': 'Выключить всю виртуальную машину WSL? Все дистрибутивы и их процессы остановятся, открытые вкладки переподключатся сами.', 'local.wslRestart.ok': 'Перезапустить', 'local.wslRestart.done': '{d} перезапущен', 'local.wslShutdown.done': 'WSL выключен',
       'files.name': 'Имя', 'files.size': 'Размер', 'files.modified': 'Изменён', 'files.mode': 'Права', 'tab.inactive': 'неактивно', 'settings.theme.pick': 'Цветовая схема',
     },
     en: {
@@ -111,6 +112,7 @@ window.I18N = (() => {
       'vault.quick.unlock': 'Unlock with {m}', 'settings.quick': 'Quick unlock', 'settings.quick.label': 'Unlock with {m}', 'settings.quick.na': 'Not available on this system (needs Touch ID or Windows Hello)', 'settings.quick.hint': 'The vault key is kept encrypted by the OS (Keychain / DPAPI) and released after a {m} check; the master password always works as a fallback.'.replace('{m}', 'Touch ID / Windows Hello'),
       'vault.unlock.text': 'Enter the master password to open your hosts and keys.', 'vault.show': 'Show password', 'vault.quick.waiting': 'Waiting for {m}…',
       'files.discard': 'Discard unsaved changes?',
+      'local.wslRestart': 'Restart WSL: {d}', 'local.wslShutdown': 'Shut down all WSL (wsl --shutdown)', 'local.wslRestart.confirm': 'Terminate the {d} distro? All processes in it will be killed; open tabs reconnect automatically.', 'local.wslShutdown.confirm': 'Shut down the whole WSL VM? All distros and their processes stop; open tabs reconnect automatically.', 'local.wslRestart.ok': 'Restart', 'local.wslRestart.done': '{d} restarted', 'local.wslShutdown.done': 'WSL shut down',
       'files.name': 'Name', 'files.size': 'Size', 'files.modified': 'Modified', 'files.mode': 'Mode', 'tab.inactive': 'inactive', 'settings.theme.pick': 'Colour scheme',
     },
   };

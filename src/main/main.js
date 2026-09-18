@@ -289,6 +289,13 @@ function registerIpc() {
     return settings.localProfiles;
   });
   handle('profiles:detect', () => detectProfiles());
+  // WSL control: terminate one distro (it restarts on next launch) or shut the whole WSL VM down
+  handle('wsl:restart', (distro) => new Promise((resolve, reject) => {
+    if (process.platform !== 'win32') return reject(new Error('WSL is only available on Windows'));
+    const { execFile } = require('child_process');
+    const args = distro ? ['--terminate', distro] : ['--shutdown'];
+    execFile('wsl.exe', args, { windowsHide: true, timeout: 30000, encoding: 'utf16le' }, (err, out, errOut) => err ? reject(new Error(String(errOut || out || err.message).replace(/\0/g, '').trim())) : resolve(true));
+  }));
   handle('profiles:save', (list) => { settings.localProfiles = Array.isArray(list) ? list : []; saveSettings(); return settings.localProfiles; });
   handle('pty:spawn', ({ profile, cols, rows }) => {
     const s = shells.spawn(profile, cols, rows);
