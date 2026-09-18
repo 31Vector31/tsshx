@@ -52,6 +52,7 @@ window.I18N = (() => {
       'settings.ctrlW': 'Ctrl+W закрывает панель и внутри терминала (shell теряет удаление слова)',
       'stats.loadHint': 'Load average за 1 / 5 / 15 минут: число процессов, работающих или ждущих CPU (или диск). Сравнивайте с числом ядер после дроби: выше него хост перегружен.',
       'recent.title': 'Недавние', 'recent.empty': 'Подключений ещё не было', 'recent.saveHost': 'Сохранить как хост…', 'recent.remove': 'Убрать из недавних', 'recent.clear': 'Очистить недавние',
+      'vault.quick.unlock': 'Открыть через {m}', 'vault.quick.enable': 'В следующий раз открывать через {m}', 'settings.quick': 'Быстрая разблокировка', 'settings.quick.label': 'Открывать через {m}', 'settings.quick.na': 'Недоступно на этой системе (нужен Touch ID или Windows Hello)', 'settings.quick.hint': 'Ключ хранилища лежит зашифрованным средствами ОС (Keychain / DPAPI) и выдаётся после проверки Touch ID / Windows Hello; мастер-пароль всегда работает как запасной.',
       'files.name': 'Имя', 'files.size': 'Размер', 'files.modified': 'Изменён', 'files.mode': 'Права', 'tab.inactive': 'неактивно', 'settings.theme.pick': 'Цветовая схема',
     },
     en: {
@@ -105,6 +106,7 @@ window.I18N = (() => {
       'settings.ctrlW': 'Ctrl+W closes the pane inside the terminal too (shell loses delete-word)',
       'stats.loadHint': 'Load average over 1 / 5 / 15 minutes: number of processes running or waiting for CPU (or disk). Compare with the core count after the slash: above it the host is saturated.',
       'recent.title': 'Recent', 'recent.empty': 'No connections yet', 'recent.saveHost': 'Save as host…', 'recent.remove': 'Remove from recent', 'recent.clear': 'Clear recent',
+      'vault.quick.unlock': 'Unlock with {m}', 'vault.quick.enable': 'Use {m} to unlock next time', 'settings.quick': 'Quick unlock', 'settings.quick.label': 'Unlock with {m}', 'settings.quick.na': 'Not available on this system (needs Touch ID or Windows Hello)', 'settings.quick.hint': 'The vault key is kept encrypted by the OS (Keychain / DPAPI) and released after a {m} check; the master password always works as a fallback.'.replace('{m}', 'Touch ID / Windows Hello'),
       'files.name': 'Name', 'files.size': 'Size', 'files.modified': 'Modified', 'files.mode': 'Mode', 'tab.inactive': 'inactive', 'settings.theme.pick': 'Colour scheme',
     },
   };

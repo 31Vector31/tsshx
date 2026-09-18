@@ -157,3 +157,13 @@ test('ssh: public key auth', async (t) => {
   const s2 = await mgr.connect({ host: '127.0.0.1', port: srv.port, username: 'k', privateKey: fs.readFileSync(kf, 'utf8'), passphrase: 'pp' });
   assert.equal(s2.status, 'connected'); s2.close();
 });
+
+test('vault: unlock with exported key, key invalid after master change', () => {
+  const v = new Vault(path.join(tmp, 'vault-key.json'));
+  v.create('pw1'); v.upsert({ name: 'x', host: 'h', username: 'u' });
+  const key = v.exportKey(); v.lock();
+  assert.equal(v.unlockWithKey(key), 1);
+  v.changeMaster('pw1', 'pw2'); v.lock();
+  assert.throws(() => v.unlockWithKey(key), { code: 'BAD_KEY' });
+  v.unlock('pw2'); assert.equal(v.list().length, 1);
+});

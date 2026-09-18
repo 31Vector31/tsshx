@@ -60,6 +60,25 @@ class Vault {
     return this.hosts.length;
   }
 
+  /** The raw AES key of the open vault (for OS-protected quick unlock). */
+  exportKey() { this._requireUnlocked(); return Buffer.from(this.key); }
+
+  /** Unlock with a previously exported key; fails if the master password (and so the key) has changed since. */
+  unlockWithKey(key) {
+    const raw = JSON.parse(fs.readFileSync(this.filePath, 'utf8'));
+    if (raw.version !== 1) throw new Error('Unsupported vault version ' + raw.version);
+    let plain;
+    try {
+      const decipher = crypto.createDecipheriv('aes-256-gcm', key, Buffer.from(raw.iv, 'base64'));
+      decipher.setAuthTag(Buffer.from(raw.tag, 'base64'));
+      plain = Buffer.concat([decipher.update(Buffer.from(raw.data, 'base64')), decipher.final()]);
+    } catch (e) { const err = new Error('Stored quick-unlock key no longer matches the vault'); err.code = 'BAD_KEY'; throw err; }
+    const payload = JSON.parse(plain.toString('utf8'));
+    this.kdf = raw.kdf; this.key = Buffer.from(key);
+    this.hosts = Array.isArray(payload.hosts) ? payload.hosts : [];
+    return this.hosts.length;
+  }
+
   lock() {
     if (this.key) this.key.fill(0);
     this.key = null;

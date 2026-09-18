@@ -10,6 +10,7 @@ const { Indexer } = require('./indexer');
 const { HistoryStore } = require('./history');
 const { LocalShellManager, detectProfiles, localHistoryFiles } = require('./local-shell');
 const stats = require('./stats');
+const { QuickUnlock } = require('./quick-unlock');
 
 if (process.env.TERHUI_USER_DATA) app.setPath('userData', process.env.TERHUI_USER_DATA);
 app.setName('terhui');
@@ -45,7 +46,7 @@ const DEFAULT_SETTINGS = {
 const IMAGE_EXT = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'avif'];
 
 let win = null;
-let vault, knownHosts, sessions, transfers, indexer, settings, history, shells;
+let vault, knownHosts, sessions, transfers, indexer, settings, history, shells, quick;
 const localFS = new LocalFS();
 const ftpConns = new Map();  // fsId -> FtpFS
 const pending = new Map();   // prompt id -> resolve
@@ -182,7 +183,17 @@ function registerIpc() {
   handle('vault:create', (pw) => { vault.create(pw); return true; });
   handle('vault:unlock', (pw) => vault.unlock(pw));
   handle('vault:lock', () => { vault.lock(); return true; });
-  handle('vault:changeMaster', (o, n) => { vault.changeMaster(o, n); return true; });
+  handle('vault:changeMaster', async (o, n) => { vault.changeMaster(o, n); if (quick.enabled()) { try { await quick.enable(vault.exportKey()); } catch (_) { quick.disable(); } } return true; });
+  // quick unlock (Touch ID / Windows Hello)
+  handle('quick:status', async () => ({ method: await quick.method(), enabled: quick.enabled() }));
+  handle('quick:enable', async () => { await quick.enable(vault.exportKey()); return true; });
+  handle('quick:disable', () => { quick.disable(); return true; });
+  handle('quick:unlock', async () => {
+    const key = await quick.unlock('Unlock the terhui vault');
+    try { return vault.unlockWithKey(key); }
+    catch (err) { if (err.code === 'BAD_KEY') quick.disable(); throw err; }
+    finally { key.fill(0); }
+  });
 
   // hosts
   handle('hosts:list', () => vault.list());
@@ -406,6 +417,7 @@ else {
     indexer = new Indexer(path.join(ud, 'index'));
     indexer.on('progress', (p) => send('index:progress', p));
     history = new HistoryStore(ud);
+    quick = new QuickUnlock(ud, logLine);
     shells = new LocalShellManager(ud);
     shells.on('data', (id, d) => send('pty:data', { sessionId: id, data: d }));
     shells.on('exit', (id, info) => send('pty:exit', { sessionId: id, ...info }));

@@ -346,6 +346,8 @@ window.App = (() => {
     window.api.knownHosts.list().then(map => { for (const [k, v] of Object.entries(map)) knownBox.append(h('b', null, k), h('span', null, h('span', { class: 'fp' }, v.keyType + ' ' + v.fingerprint), ' ', h('button', { class: 'mini', onClick: async (e) => { const m = k.match(/^\[(.*)\]:(\d+)$/); await window.api.knownHosts.remove(m[1], +m[2]); e.target.parentElement.previousSibling.remove(); e.target.parentElement.remove(); } }, t('settings.forget')))); if (!Object.keys(map).length) knownBox.append(h('span', { class: 'hint' }, '—')); });
     const security = h('div', { class: 'form' },
       L('settings.autoLock'), num('autoLockMinutes', 0, 1440),
+      L('settings.quick'), (() => { const box = h('div', { class: 'row' }); window.api.quick.status().then(q => { if (!q.method) { box.append(h('span', { class: 'hint', style: { gridColumn: 'auto' } }, t('settings.quick.na'))); return; } const cb = h('input', { type: 'checkbox' }); cb.checked = q.enabled; cb.addEventListener('change', async () => { try { if (cb.checked) await window.api.quick.enable(); else await window.api.quick.disable(); } catch (e) { UI.errToast(e); cb.checked = !cb.checked; } }); box.append(cb, h('span', null, t('settings.quick.label', { m: q.method === 'touchid' ? 'Touch ID' : 'Windows Hello' }))); }); return box; })(),
+      h('div', { class: 'hint' }, t('settings.quick.hint')),
       L('settings.knownHosts'), knownBox,
       h('label', null, ''), h('div', { class: 'row' },
         h('button', { onClick: () => Hosts.importSshConfig() }, t('hosts.importSsh')),
@@ -376,19 +378,36 @@ window.App = (() => {
     const st = await window.api.vault.status();
     if (st.unlocked) return true;
     const create = !st.exists;
+    let quick = { method: null, enabled: false };
+    try { quick = await window.api.quick.status(); } catch (_) {}
+    const quickName = quick.method === 'touchid' ? 'Touch ID' : quick.method === 'hello' ? 'Windows Hello' : '';
     return new Promise((resolve) => {
       const pw = h('input', { type: 'password', autofocus: true, style: { width: '100%' }, placeholder: t('vault.master') });
       const pw2 = create ? h('input', { type: 'password', style: { width: '100%', marginTop: '6px' }, placeholder: t('vault.master2') }) : null;
       const err = h('div', { class: 'err', style: { minHeight: '18px', marginTop: '6px' } });
-      const body = h('div', { class: 'vault-screen' }, create ? h('p', { class: 'muted', style: { margin: '0 0 10px' } }, t('vault.create.text')) : null, pw, pw2, err);
-      const ctl = UI.modal({ title: t(create ? 'vault.create.title' : 'vault.unlock.title'), body, closeOnBack: false, width: '420px', buttons: [{ label: t(create ? 'vault.create' : 'vault.unlock'), primary: true, onClick: async () => {
+      // offer to set quick unlock up right here when the OS supports it and it is not enabled yet
+      const enableCb = quick.method && !quick.enabled ? h('input', { type: 'checkbox' }) : null;
+      const quickBtn = quick.method && quick.enabled && !create ? h('button', { class: 'primary', style: { width: '100%', marginBottom: '8px' }, onClick: () => tryQuick() }, Icon('key', 14), t('vault.quick.unlock', { m: quickName })) : null;
+      const body = h('div', { class: 'vault-screen' },
+        create ? h('p', { class: 'muted', style: { margin: '0 0 10px' } }, t('vault.create.text')) : null,
+        quickBtn, pw, pw2,
+        enableCb ? h('label', { class: 'row muted', style: { marginTop: '6px', gap: '6px' } }, enableCb, t('vault.quick.enable', { m: quickName })) : null,
+        err);
+      const ctl = UI.modal({ title: t(create ? 'vault.create.title' : 'vault.unlock.title'), body, closeOnBack: false, width: '420px', buttons: [{ label: t(create ? 'vault.create' : 'vault.unlock'), primary: !quickBtn, onClick: async () => {
         try {
           if (create) { if (pw.value !== pw2.value) { err.textContent = t('vault.mismatch'); return UI.KEEP_OPEN; } if (!pw.value) return UI.KEEP_OPEN; await window.api.vault.create(pw.value); }
           else await window.api.vault.unlock(pw.value);
+          if (enableCb && enableCb.checked) { try { await window.api.quick.enable(); } catch (e) { UI.errToast(e); } }
           return true;
         } catch (e) { err.textContent = /BAD_PASSWORD|Wrong master/.test(e.message) ? t('vault.bad') : e.message; pw.select(); return UI.KEEP_OPEN; }
-      } }], onKey: (e) => { if (e.key === 'Escape') { e.stopPropagation(); return true; } return false; } });
+      } }], onKey: (e) => { if (e.key === 'Escape') { e.stopPropagation(); return true; } if (e.key === 'Enter' && quickBtn && !pw.value) { e.preventDefault(); tryQuick(); return true; } return false; } });
+      async function tryQuick() {
+        err.textContent = '';
+        try { await window.api.quick.unlock(); ctl.close(true); }
+        catch (e) { const m = (e.message || '').replace(/^Error invoking remote method '[^']+': (Error: )?/, ''); err.textContent = /Cancel/i.test(m) ? '' : m; if (/no longer matches/.test(m)) { quickBtn.remove(); } pw.focus(); }
+      }
       ctl.promise.then(v => resolve(v === true));
+      if (quickBtn) setTimeout(tryQuick, 150);   // like KeePassXC: the biometric prompt comes up immediately, password stays as fallback
     });
   }
   async function lock() {

@@ -8,6 +8,7 @@ const invoke = (ch) => (...args) => ipcRenderer.invoke(ch, ...args);
 contextBridge.exposeInMainWorld('api', {
   app: { info: invoke('app:info') },
   settings: { get: invoke('settings:get'), set: invoke('settings:set') },
+  quick: { status: invoke('quick:status'), enable: invoke('quick:enable'), disable: invoke('quick:disable'), unlock: invoke('quick:unlock') },
   vault: { status: invoke('vault:status'), create: invoke('vault:create'), unlock: invoke('vault:unlock'), lock: invoke('vault:lock'), changeMaster: invoke('vault:changeMaster') },
   hosts: {
     list: invoke('hosts:list'), get: invoke('hosts:get'), save: invoke('hosts:save'), remove: invoke('hosts:remove'),
