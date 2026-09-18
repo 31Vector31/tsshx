@@ -122,6 +122,27 @@ const dlgWin = () => BrowserWindow.getFocusedWindow() || win;
 function sessionsOwnedBy(wc) { const out = []; for (const [id, w] of owners) if (w === wc) out.push(id); return out; }
 function killSession(id) { const s = sessions.get(id); if (s) s.close(); else shells.kill(id); owners.delete(id); }
 
+/** Install the bundled Nerd Font symbols into the user's font directory once, so the icons are also
+ *  available outside terhui. The app itself does not depend on this: it loads the same file directly. */
+function installNerdFont() {
+  try {
+    const src = path.join(__dirname, '../../assets/fonts/SymbolsNerdFontMono.ttf');
+    if (!fs.existsSync(src)) return;
+    const home = os.homedir();
+    const dir = process.platform === 'win32' ? path.join(process.env.LOCALAPPDATA || path.join(home, 'AppData', 'Local'), 'Microsoft', 'Windows', 'Fonts')
+      : process.platform === 'darwin' ? path.join(home, 'Library', 'Fonts')
+      : path.join(home, '.local', 'share', 'fonts');
+    const dst = path.join(dir, 'SymbolsNerdFontMono.ttf');
+    if (fs.existsSync(dst)) return;
+    fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(dst, fs.readFileSync(src));   // readFileSync also works inside the asar archive
+    logLine('installed Nerd Font symbols to', dst);
+    const { spawn } = require('child_process');
+    if (process.platform === 'win32') spawn('reg', ['add', 'HKCU\\Software\\Microsoft\\Windows NT\\CurrentVersion\\Fonts', '/v', 'Symbols Nerd Font Mono (TrueType)', '/t', 'REG_SZ', '/d', dst, '/f'], { windowsHide: true, stdio: 'ignore' }).unref();
+    else if (process.platform === 'linux') spawn('fc-cache', ['-f', dir], { stdio: 'ignore' }).unref();
+  } catch (err) { logLine('Nerd Font install skipped:', err.message); }
+}
+
 // ---------- window ----------
 function frameOptions() {
   const integrated = settings.windowFrame !== 'native' && !SAFE_MODE;
@@ -553,6 +574,7 @@ if (!gotLock) { logLine('another instance is running, exiting'); app.quit(); }
 else {
   app.on('second-instance', () => { if (win) { if (!win.isVisible()) win.show(); if (win.isMinimized()) win.restore(); win.focus(); } });
   app.whenReady().then(() => {
+    installNerdFont();
     const ud = app.getPath('userData');
     settings = loadSettings();
     vault = new Vault(path.join(ud, 'vault.json'));

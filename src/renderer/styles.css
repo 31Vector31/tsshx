@@ -1,8 +1,8 @@
-/* Nerd Font icons (powerline arrows, git/folder glyphs) work even when no patched font is installed:
-   this symbols-only font is bundled and sits at the end of every font stack. MIT, see assets/fonts/. */
+/* Nerd Font icons (powerline arrows, git/folder glyphs) ship with the app and sit at the end of every
+   font stack, so they render even when no patched font is installed. MIT, see assets/fonts/. */
 @font-face {
   font-family: "Symbols Nerd Font Mono";
-  src: url("../../assets/fonts/SymbolsNerdFontMono.woff2") format("woff2");
+  src: url("../../assets/fonts/SymbolsNerdFontMono.ttf") format("truetype");
   font-weight: normal; font-style: normal; font-display: block;
 }
 :root {

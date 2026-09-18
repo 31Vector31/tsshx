@@ -30,8 +30,9 @@ npm run dist:linux # AppImage + deb   (dist:win → Setup installer + portable e
   The tab menu lists the other windows too ("Move to window …", "Move back to main window").
   Closing a torn-off window closes its sessions.
 - Nerd Font icons (powerline arrows, git/folder glyphs in prompts like Starship or oh-my-posh) work out of the box:
-  a symbols-only Nerd Font is bundled and appended to every font stack, so nothing has to be installed on the host machine.
-  Emoji use the system emoji font.
+  a symbols-only Nerd Font ships with the app and is appended to every font stack. On first start it is also copied
+  into the user's font directory once (`%LOCALAPPDATA%\Microsoft\Windows\Fonts`, `~/Library/Fonts`, `~/.local/share/fonts`),
+  so the icons are available to other programs too. Emoji use the system emoji font.
 - Appearance: 12 built-in colour schemes, import of xterm / Windows Terminal JSON schemes,
   wallpaper (any image) with dim/blur/fit, terminal opacity, padding, font, cursor; the UI is tinted from the scheme.
 - Window: OS frame with Window Controls Overlay (tabs live in the title bar, native caption buttons, Win11 snap layouts and
@@ -110,7 +111,7 @@ src/renderer/  UI: app.js, terminal.js (xterm), hosts.js, files.js, jump.js, the
 test/          node:test suite + in-process SSH server (ssh2 server + node-pty + OpenSSH sftp-server)
 ```
 
-Bundled font: `assets/fonts/SymbolsNerdFontMono.woff2` from [Nerd Fonts](https://github.com/ryanoasis/nerd-fonts) (MIT, licence next to it).
+Bundled font: `assets/fonts/SymbolsNerdFontMono.ttf` from [Nerd Fonts](https://github.com/ryanoasis/nerd-fonts) (MIT, licence next to it).
 
 Data lives in Electron's user-data directory (`~/.config/tsshx` on Linux): `vault.json`, `known_hosts.json`,
 `settings.json`, `index/*.json.gz`, `themes/*.json`. Set `TSSHX_USER_DATA=/path` to relocate it.
