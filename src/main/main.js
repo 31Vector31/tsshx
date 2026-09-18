@@ -139,6 +139,8 @@ function createWindow() {
   });
   logLine('window created', { platform: process.platform, electron: process.versions.electron, frame: frameOpts, safe: SAFE_MODE, userData: app.getPath('userData') });
   win.on('closed', () => { win = null; });
+  win.on('enter-full-screen', () => send('window:fullscreen', true));
+  win.on('leave-full-screen', () => send('window:fullscreen', false));
   win.webContents.setWindowOpenHandler(({ url }) => { if (/^https?:/.test(url)) shell.openExternal(url); return { action: 'deny' }; });
   win.on('close', (e) => {
     if (settings.confirmClose && sessions.sessions.size > 0 && !app.__quitting) {

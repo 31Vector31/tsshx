@@ -1,7 +1,7 @@
 'use strict';
 const { contextBridge, ipcRenderer, webUtils } = require('electron');
 
-const EVENTS = new Set(['ssh:data', 'ssh:status', 'ssh:closed', 'ssh:shell-closed', 'ssh:banner', 'ssh:error', 'pty:data', 'pty:exit', 'xfer:progress', 'index:progress', 'prompt']);
+const EVENTS = new Set(['ssh:data', 'ssh:status', 'ssh:closed', 'ssh:shell-closed', 'ssh:banner', 'ssh:error', 'pty:data', 'pty:exit', 'xfer:progress', 'index:progress', 'prompt', 'window:fullscreen']);
 
 const invoke = (ch) => (...args) => ipcRenderer.invoke(ch, ...args);
 

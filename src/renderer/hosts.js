@@ -8,6 +8,14 @@ window.Hosts = (() => {
   const collapsed = new Set(JSON.parse(localStorage.getItem('terhui.collapsedGroups') || '[]'));
   const KEEP = '__KEEP_SECRET__';
   const COLORS = ['', '#4f8cc9', '#6aa66a', '#c9a44f', '#c9605f', '#9b7fc4', '#4fa3a8', '#c98a4f', '#8a8f99'];
+  /** Row of colour swatches with a `.value` property (native <select> option colours are not rendered on macOS). */
+  function colorPicker(initial) {
+    const box = h('div', { class: 'swatch-row' });
+    box.value = initial || '';
+    const render = () => { box.innerHTML = ''; for (const c of COLORS) box.append(h('button', { type: 'button', class: 'sw' + (c === box.value ? ' on' : '') + (c ? '' : ' none'), title: c || '—', style: c ? { background: c } : undefined, onClick: () => { box.value = c; render(); } }, c ? '' : '×')); };
+    render();
+    return box;
+  }
 
   function init(a) {
     app = a;
@@ -97,7 +105,7 @@ window.Hosts = (() => {
     const f = {};
     const inp = (k, v, attrs = {}) => { f[k] = h('input', { type: 'text', value: v, spellcheck: 'false', ...attrs }); return f[k]; };
     f.kind = h('select', null, h('option', { value: 'posix' }, 'bash / zsh / fish (POSIX)'), h('option', { value: 'pwsh' }, 'PowerShell'), h('option', { value: 'cmd' }, 'cmd')); f.kind.value = e.kind || 'posix';
-    f.color = h('select', null, ...COLORS.map(c => h('option', { value: c, style: c ? { color: c } : undefined }, c ? '■ ' + c : '—'))); f.color.value = e.color || '';
+    f.color = colorPicker(e.color || '');
     const form = h('div', { class: 'form' },
       h('label', null, t('host.name')), inp('name', e.name, { autofocus: true }),
       h('label', null, t('local.command')), inp('command', e.command, { placeholder: process_hint() }),
@@ -149,8 +157,7 @@ window.Hosts = (() => {
     f.privateKey = h('textarea', { placeholder: e.hasPrivateKey ? t('host.secretKept') : t('host.keypaste'), spellcheck: 'false' }, e.hasPrivateKey ? KEEP : '');
     const keyFileBtn = h('button', { type: 'button', onClick: async () => { const r = await window.api.hosts.readKeyFile(); if (r) { f.privateKey.value = r.content; f.privateKeyPath.value = ''; } } }, t('host.keyfile'));
     f.useAgent = h('input', { type: 'checkbox' }); f.useAgent.checked = !!e.useAgent;
-    f.color = h('select', null, ...COLORS.map(c => h('option', { value: c, style: c ? { color: c } : undefined }, c ? '■ ' + c : '—')));
-    f.color.value = e.color || '';
+    f.color = colorPicker(e.color || '');
     f.notes = h('textarea', { spellcheck: 'false' }, e.notes || '');
 
     const sshOnly = [], ftpOnly = [], keyOnly = [], pwOnly = [];

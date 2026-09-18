@@ -536,6 +536,7 @@ window.App = (() => {
     const wi = await window.api.window.info();
     document.body.classList.toggle('wco', wi.frame === 'integrated');
     document.body.classList.toggle('mac', wi.platform === 'darwin');
+    window.api.on('window:fullscreen', (on) => { document.body.classList.toggle('fullscreen', !!on); app.fitActive(); });
     document.body.classList.toggle('material', wi.material !== 'none');
     try { Themes.setCustom(await window.api.themes.list()); } catch (_) {}
     I18N.setLocale(app.settings.locale);

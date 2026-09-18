@@ -229,6 +229,11 @@ body.pane-dragging .pane-box { pointer-events: auto; }
 .hist .r.pinned .pinbtn { color: var(--fg); }
 .hist .r.multi .cmd::after { content: ' ⏎'; color: var(--fg2); }
 
+.swatch-row { display: flex; gap: 6px; flex-wrap: wrap; }
+.swatch-row .sw { width: 22px; height: 22px; min-height: 0; padding: 0; border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg); color: var(--fg2); font-size: 12px; }
+.swatch-row .sw.on { outline: 2px solid var(--fg); outline-offset: 1px; }
+.swatch-row .sw.none { background: var(--bg); }
+
 /* editor (CodeMirror) */
 .editor-modal { width: min(1100px, 94vw); max-width: none; height: min(860px, 90vh); }
 .editor-modal .modal-body { padding: 0; display: flex; flex-direction: column; flex: 1; min-height: 0; user-select: text; }
@@ -296,7 +301,8 @@ input[type=checkbox] { min-height: 0; margin: 0; }
 
 /* Integrated title bar (Window Controls Overlay): the tab strip sits in the OS title-bar area, native caption buttons stay */
 body.wco #topbar { -webkit-app-region: drag; height: max(env(titlebar-area-height, 32px), 32px); padding-left: env(titlebar-area-x, 0px); padding-right: calc(100vw - env(titlebar-area-x, 0px) - env(titlebar-area-width, 100vw)); }
-body.wco.mac #topbar { padding-left: max(env(titlebar-area-x, 0px), 80px); }   /* traffic lights live on the left */
+body.wco.mac:not(.fullscreen) #topbar { padding-left: max(env(titlebar-area-x, 0px), 80px); }   /* traffic lights live on the left; hidden in fullscreen */
+body.wco.fullscreen #topbar { padding-left: 0; padding-right: 0; }
 body.wco #topbar button, body.wco #topbar .tab, body.wco #tabs { -webkit-app-region: no-drag; }
 body.wco #tabs { max-width: 60vw; }
 body.wco #topbar .spacer { min-width: 80px; }
