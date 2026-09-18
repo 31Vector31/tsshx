@@ -272,3 +272,23 @@ body.wco #topbar .spacer { min-width: 80px; }
 body.material, body.material #app { background: transparent; }
 body.material #topbar, body.material #sidebar, body.material #files, body.material #statusbar { background: color-mix(in srgb, var(--bg2) 72%, transparent); }
 body.material #center { background: color-mix(in srgb, var(--bg) 85%, transparent); }
+
+/* lock screen */
+.lock-screen { position: absolute; inset: 0; background: var(--bg); display: flex; align-items: center; justify-content: center; pointer-events: auto; z-index: 60; }
+.lock-card { width: 380px; background: var(--bg2); border: 1px solid var(--border); padding: 18px 20px 16px; display: flex; flex-direction: column; gap: 12px; }
+.lock-head { display: flex; gap: 12px; align-items: flex-start; }
+.lock-head .icon { color: var(--fg2); margin-top: 2px; }
+.lock-title { font-weight: 600; font-size: 13px; }
+.lock-sub { color: var(--fg2); margin-top: 2px; }
+.lock-field { position: relative; }
+.lock-field input { width: 100%; height: 32px; padding: 0 34px 0 10px; font-size: 13px; }
+.lock-field .eye { position: absolute; right: 3px; top: 4px; width: 26px; height: 24px; }
+.lock-field .eye.on { color: var(--fg); }
+.lock-err { min-height: 16px; color: var(--danger); font-size: 12px; }
+.lock-err:empty { display: none; }
+.lock-busy { color: var(--fg2); font-size: 12px; }
+.lock-actions { display: flex; gap: 8px; justify-content: flex-end; align-items: center; }
+.lock-actions .lock-quick { margin-right: auto; }
+.lock-actions button { height: 30px; padding: 0 14px; }
+@keyframes lock-shake { 0%, 100% { transform: translateX(0); } 20%, 60% { transform: translateX(-5px); } 40%, 80% { transform: translateX(5px); } }
+.lock-card.shake { animation: lock-shake .3s; }

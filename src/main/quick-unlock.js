@@ -57,7 +57,37 @@ class QuickUnlock {
     if (!m || !this.enabled()) throw new Error('Quick unlock is not set up');
     if (m === 'touchid') await systemPreferences.promptTouchID(reason || 'unlock the vault');
     else if (m === 'hello') {
-      const out = await runPowerShell(`${PS_PRELUDE}\n(Await ([Windows.Security.Credentials.UI.UserConsentVerifier]::RequestVerificationAsync('${(reason || 'Unlock the vault').replace(/'/g, "''")}')) ([Windows.Security.Credentials.UI.UserConsentVerificationResult])).ToString()`);
+      // The Windows Security dialog is created by the PowerShell process, which has no foreground rights, so it
+      // opens behind our window. Find it (class "Credential Dialog Xaml Host") and pull it to the front while
+      // the verification is pending (AttachThreadInput trick).
+      const script = `${PS_PRELUDE}
+Add-Type -Namespace T -Name W -MemberDefinition @'
+[DllImport("user32.dll")] public static extern IntPtr FindWindow(string c, string t);
+[DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr h);
+[DllImport("user32.dll")] public static extern bool BringWindowToTop(IntPtr h);
+[DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow();
+[DllImport("user32.dll")] public static extern uint GetWindowThreadProcessId(IntPtr h, IntPtr p);
+[DllImport("user32.dll")] public static extern bool AttachThreadInput(uint a, uint b, bool f);
+[DllImport("kernel32.dll")] public static extern uint GetCurrentThreadId();
+'@
+$op = [Windows.Security.Credentials.UI.UserConsentVerifier]::RequestVerificationAsync('${(reason || 'Unlock the vault').replace(/'/g, "''")}')
+$task = $asTask.MakeGenericMethod([Windows.Security.Credentials.UI.UserConsentVerificationResult]).Invoke($null, @($op))
+$raised = $false
+for ($i = 0; $i -lt 100 -and -not $task.IsCompleted; $i++) {
+  if (-not $raised) {
+    $hw = [T.W]::FindWindow('Credential Dialog Xaml Host', $null)
+    if ($hw -ne [IntPtr]::Zero) {
+      $fg = [T.W]::GetForegroundWindow(); $ft = [T.W]::GetWindowThreadProcessId($fg, [IntPtr]::Zero); $me = [T.W]::GetCurrentThreadId()
+      [T.W]::AttachThreadInput($ft, $me, $true) | Out-Null
+      [T.W]::BringWindowToTop($hw) | Out-Null; [T.W]::SetForegroundWindow($hw) | Out-Null
+      [T.W]::AttachThreadInput($ft, $me, $false) | Out-Null
+      $raised = $true
+    }
+  }
+  Start-Sleep -Milliseconds 50
+}
+$task.Wait(); $task.Result.ToString()`;
+      const out = await runPowerShell(script);
       if (out !== 'Verified') { const e = new Error(out === 'Canceled' ? 'Cancelled' : 'Windows Hello: ' + out); e.code = out === 'Canceled' ? 'CANCELLED' : 'DENIED'; throw e; }
     }
     return Buffer.from(safeStorage.decryptString(fs.readFileSync(this.file)), 'base64');

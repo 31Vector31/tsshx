@@ -109,5 +109,6 @@ window.UI = (() => {
   };
   const fmtAgo = (ms) => { const s = Math.round((Date.now() - ms) / 1000); if (s < 60) return s + 's'; if (s < 3600) return Math.round(s / 60) + 'm'; if (s < 86400) return Math.round(s / 3600) + 'h'; return Math.round(s / 86400) + 'd'; };
 
-  return { $, $$, h, esc, modal, confirm, prompt, toast, errToast, ctxmenu, fmtSize, fmtDate, fmtAgo, fmtAgoWords, KEEP_OPEN, get modalOpen() { return stack.length > 0; } };
+  const pushLayer = (el) => { const entry = { el, close: () => {}, focus: () => { const f = el.querySelector('input'); if (f) f.focus(); } }; stack.push(entry); return { release: () => { const i = stack.indexOf(entry); if (i >= 0) stack.splice(i, 1); } }; };
+  return { $, $$, h, esc, modal, confirm, prompt, toast, errToast, ctxmenu, fmtSize, fmtDate, fmtAgo, fmtAgoWords, pushLayer, KEEP_OPEN, get modalOpen() { return stack.length > 0; } };
 })();

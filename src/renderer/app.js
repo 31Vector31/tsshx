@@ -382,26 +382,44 @@ window.App = (() => {
     try { quick = await window.api.quick.status(); } catch (_) {}
     const quickName = quick.method === 'touchid' ? 'Touch ID' : quick.method === 'hello' ? 'Windows Hello' : '';
     return new Promise((resolve) => {
-      const pw = h('input', { type: 'password', autofocus: true, style: { width: '100%' }, placeholder: t('vault.master') });
-      const pw2 = create ? h('input', { type: 'password', style: { width: '100%', marginTop: '6px' }, placeholder: t('vault.master2') }) : null;
-      const err = h('div', { class: 'err', style: { minHeight: '18px', marginTop: '6px' } });
-      const quickBtn = quick.method && quick.enabled && !create ? h('button', { class: 'primary', style: { width: '100%', marginBottom: '8px' }, onClick: () => tryQuick() }, Icon('key', 14), t('vault.quick.unlock', { m: quickName })) : null;
-      const body = h('div', { class: 'vault-screen' },
-        create ? h('p', { class: 'muted', style: { margin: '0 0 10px' } }, t('vault.create.text')) : null,
-        quickBtn, pw, pw2, err);
-      const ctl = UI.modal({ title: t(create ? 'vault.create.title' : 'vault.unlock.title'), body, closeOnBack: false, width: '420px', buttons: [{ label: t(create ? 'vault.create' : 'vault.unlock'), primary: !quickBtn, onClick: async () => {
-        try {
-          if (create) { if (pw.value !== pw2.value) { err.textContent = t('vault.mismatch'); return UI.KEEP_OPEN; } if (!pw.value) return UI.KEEP_OPEN; await window.api.vault.create(pw.value); }
-          else await window.api.vault.unlock(pw.value);
-          return true;
-        } catch (e) { err.textContent = /BAD_PASSWORD|Wrong master/.test(e.message) ? t('vault.bad') : e.message; pw.select(); return UI.KEEP_OPEN; }
-      } }], onKey: (e) => { if (e.key === 'Escape') { e.stopPropagation(); return true; } if (e.key === 'Enter' && quickBtn && !pw.value) { e.preventDefault(); tryQuick(); return true; } return false; } });
-      async function tryQuick() {
+      // Lock screen: a full-window layer with one compact card (password + optional biometric button)
+      const pw = h('input', { type: 'password', autofocus: true, placeholder: t('vault.master'), autocomplete: 'off' });
+      const eye = h('button', { class: 'icon-btn eye', type: 'button', tabindex: '-1', title: t('vault.show'), onClick: () => { pw.type = pw.type === 'password' ? 'text' : 'password'; eye.classList.toggle('on', pw.type === 'text'); pw.focus(); } }, Icon('eye', 14));
+      const pw2 = create ? h('input', { type: 'password', placeholder: t('vault.master2'), autocomplete: 'off' }) : null;
+      const err = h('div', { class: 'lock-err' });
+      const busy = h('div', { class: 'lock-busy', hidden: true }, t('vault.quick.waiting', { m: quickName }));
+      const unlockBtn = h('button', { class: 'primary lock-unlock', onClick: () => submit() }, t(create ? 'vault.create' : 'vault.unlock'));
+      const quickBtn = quick.method && quick.enabled && !create ? h('button', { class: 'lock-quick', onClick: () => tryQuick() }, Icon(quick.method === 'touchid' ? 'fingerprint' : 'hello', 16), t('vault.quick.unlock', { m: quickName })) : null;
+      const card = h('div', { class: 'lock-card' },
+        h('div', { class: 'lock-head' }, Icon('lock', 18), h('div', null, h('div', { class: 'lock-title' }, t(create ? 'vault.create.title' : 'vault.unlock.title')), h('div', { class: 'lock-sub' }, t(create ? 'vault.create.text' : 'vault.unlock.text')))),
+        h('div', { class: 'lock-field' }, pw, eye),
+        pw2 ? h('div', { class: 'lock-field' }, pw2) : null,
+        err, busy,
+        h('div', { class: 'lock-actions' }, quickBtn, unlockBtn));
+      const layer = h('div', { class: 'lock-screen' }, card);
+      $('#modals').append(layer);
+      const stackEntry = UI.pushLayer ? UI.pushLayer(layer) : null;
+      let done = false;
+      const finish = (ok) => { if (done) return; done = true; layer.remove(); stackEntry && stackEntry.release(); resolve(ok); app.focusTerminal(); };
+      async function submit() {
         err.textContent = '';
-        try { await window.api.quick.unlock(); ctl.close(true); }
-        catch (e) { const m = (e.message || '').replace(/^Error invoking remote method '[^']+': (Error: )?/, ''); err.textContent = /Cancel/i.test(m) ? '' : m; if (/no longer matches/.test(m)) { quickBtn.remove(); } pw.focus(); }
+        try {
+          if (create) { if (pw.value !== pw2.value) { err.textContent = t('vault.mismatch'); pw2.focus(); return; } if (!pw.value) { pw.focus(); return; } await window.api.vault.create(pw.value); }
+          else { if (!pw.value) { pw.focus(); return; } await window.api.vault.unlock(pw.value); }
+          finish(true);
+        } catch (e) { err.textContent = /BAD_PASSWORD|Wrong master/.test(e.message) ? t('vault.bad') : e.message.replace(/^Error invoking remote method '[^']+': (Error: )?/, ''); pw.select(); card.classList.remove('shake'); void card.offsetWidth; card.classList.add('shake'); }
       }
-      ctl.promise.then(v => resolve(v === true));
+      async function tryQuick() {
+        err.textContent = ''; busy.hidden = false; quickBtn.disabled = true;
+        try { await window.api.quick.unlock(); finish(true); }
+        catch (e) { const m = (e.message || '').replace(/^Error invoking remote method '[^']+': (Error: )?/, ''); err.textContent = /Cancel/i.test(m) ? '' : m; if (/no longer matches/.test(m)) quickBtn.remove(); pw.focus(); }
+        finally { busy.hidden = true; quickBtn.disabled = false; }
+      }
+      layer.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') { e.stopPropagation(); return; }
+        if (e.key === 'Enter') { e.preventDefault(); if (quickBtn && !pw.value && document.activeElement !== pw2) tryQuick(); else submit(); }
+      });
+      setTimeout(() => pw.focus(), 0);
       if (quickBtn) setTimeout(tryQuick, 150);   // like KeePassXC: the biometric prompt comes up immediately, password stays as fallback
     });
   }
