@@ -311,6 +311,10 @@ body.material, body.material #app { background: transparent; }
 body.material #topbar, body.material #sidebar, body.material #files, body.material #statusbar { background: color-mix(in srgb, var(--bg2) 72%, transparent); }
 body.material #center { background: color-mix(in srgb, var(--bg) 85%, transparent); }
 
+/* torn-off (detached) window: terminals only */
+body.detached #sidebar, body.detached #sidebar-resizer, body.detached #btn-sidebar, body.detached #btn-files, body.detached #btn-lock, body.detached #files, body.detached #files-resizer { display: none !important; }
+body.detached .welcome table { display: none; }
+
 /* lock screen */
 .lock-screen { position: absolute; inset: 0; background: var(--bg); display: flex; align-items: center; justify-content: center; pointer-events: auto; z-index: 60; }
 .lock-card { width: 380px; background: var(--bg2); border: 1px solid var(--border); padding: 18px 20px 16px; display: flex; flex-direction: column; gap: 12px; }

@@ -65,10 +65,11 @@ function saveSettings() {
 // ---------- renderer prompts ----------
 function askRenderer(kind, payload) {
   return new Promise((resolve) => {
-    if (!win || win.isDestroyed()) return resolve(null);
+    const target = dlgWin();
+    if (!target || target.isDestroyed()) return resolve(null);
     const id = promptSeq++;
     pending.set(id, resolve);
-    win.webContents.send('prompt', { id, kind, payload });
+    target.webContents.send('prompt', { id, kind, payload });
   });
 }
 ipcMain.on('prompt:answer', (_e, { id, value }) => {
@@ -83,6 +84,7 @@ const prompter = {
 };
 
 function send(channel, payload) { if (win && !win.isDestroyed()) win.webContents.send(channel, payload); }
+function sendAll(channel, payload) { for (const w of windows) if (!w.isDestroyed()) w.webContents.send(channel, payload); }
 
 // ---------- FS resolution ----------
 function resolveFS(fsId) {
@@ -99,13 +101,27 @@ function serializeError(err) {
 }
 function handle(channel, fn) {
   ipcMain.handle(channel, async (event, ...args) => {
-    try { return await fn(...args); }
+    try { return await fn.call({ sender: event.sender }, ...args); }
     catch (err) { throw serializeError(err); }
   });
 }
 
+// ---------- windows & session ownership ----------
+// Sessions (SSH, pty) live here in main; a tab can be torn off into its own window, so every session has an
+// owning webContents that receives its data. Falls back to the main window when the owner is gone.
+const owners = new Map();   // sessionId -> webContents
+const windows = new Set();  // all BrowserWindows (main + detached)
+function sendSession(sessionId, channel, payload) {
+  const wc = owners.get(sessionId);
+  if (wc && !wc.isDestroyed()) wc.send(channel, payload);
+  else if (win && !win.isDestroyed()) win.webContents.send(channel, payload);
+}
+const dlgWin = () => BrowserWindow.getFocusedWindow() || win;
+function sessionsOwnedBy(wc) { const out = []; for (const [id, w] of owners) if (w === wc) out.push(id); return out; }
+function killSession(id) { const s = sessions.get(id); if (s) s.close(); else shells.kill(id); owners.delete(id); }
+
 // ---------- window ----------
-function createWindow() {
+function frameOptions() {
   const integrated = settings.windowFrame !== 'native' && !SAFE_MODE;
   const material = !SAFE_MODE && process.platform === 'win32' && settings.winMaterial && settings.winMaterial !== 'none' ? settings.winMaterial : null;
   const frameOpts = {};
@@ -114,6 +130,46 @@ function createWindow() {
     else { frameOpts.titleBarStyle = 'hidden'; frameOpts.titleBarOverlay = { color: settings.chromeBg, symbolColor: settings.chromeFg, height: 32 }; }
   }
   if (material) { frameOpts.backgroundMaterial = material; }   // Windows 11 Mica / Acrylic; needs a transparent page background
+  return { frameOpts, material };
+}
+
+/** A torn-off window: same renderer in "detached" mode (terminal tabs only), sessions are handed over via owners. */
+function createDetachedWindow({ x, y, width, height }, payload) {
+  const { frameOpts, material } = frameOptions();
+  const w = new BrowserWindow({
+    width: Math.max(500, width || 900), height: Math.max(300, height || 560), minWidth: 400, minHeight: 250, ...frameOpts,
+    x: Number.isFinite(x) ? Math.round(x) : undefined, y: Number.isFinite(y) ? Math.round(y) : undefined,
+    backgroundColor: material ? '#00000000' : settings.chromeBg, title: 'terhui', autoHideMenuBar: true, show: false,
+    icon: path.join(__dirname, '../../assets/icon.png'),
+    webPreferences: { preload: path.join(__dirname, '../preload/preload.js'), contextIsolation: true, sandbox: true, nodeIntegration: false, spellcheck: false },
+  });
+  windows.add(w);
+  for (const p of payload.panes) if (p.sessionId) owners.set(p.sessionId, w.webContents);
+  w.loadFile(path.join(__dirname, '../renderer/index.html'), { query: { detached: '1' } });
+  w.webContents.once('did-finish-load', async () => {
+    w.webContents.send('detach:init', payload); setTimeout(() => { if (!w.isDestroyed() && !w.isVisible()) w.show(); }, 150);
+    if (process.env.TERHUI_AUTOSCRIPT2) { try { await w.webContents.executeJavaScript(fs.readFileSync(process.env.TERHUI_AUTOSCRIPT2, 'utf8'), true); } catch (err) { console.error('autoscript2 error', err); } }   // test hook
+    if (process.env.TERHUI_SCREENSHOT2) setTimeout(async () => { try { fs.writeFileSync(process.env.TERHUI_SCREENSHOT2, (await w.webContents.capturePage()).toPNG()); } catch (_) {} }, 3000);
+  });
+  w.once('ready-to-show', () => w.show());
+  w.on('enter-full-screen', () => w.webContents.send('window:fullscreen', true));
+  w.on('leave-full-screen', () => w.webContents.send('window:fullscreen', false));
+  w.webContents.setWindowOpenHandler(({ url }) => { if (/^https?:/.test(url)) shell.openExternal(url); return { action: 'deny' }; });
+  w.on('close', (e) => {
+    if (app.__quitting) return;
+    const mine = sessionsOwnedBy(w.webContents).filter(id => sessions.get(id) || shells.sessions.get(id));
+    if (mine.length && settings.confirmClose) {
+      const r = dialog.showMessageBoxSync(w, { type: 'question', buttons: ['Close', 'Cancel'], defaultId: 1, cancelId: 1, message: `Close this window? ${mine.length} session(s) will be disconnected.` });
+      if (r === 1) { e.preventDefault(); return; }
+    }
+    for (const id of mine) killSession(id);
+  });
+  w.on('closed', () => windows.delete(w));
+  return w;
+}
+
+function createWindow() {
+  const { frameOpts, material } = frameOptions();
   nativeTheme.themeSource = isDarkHex(settings.chromeBg) ? 'dark' : 'light';   // dark DWM title bar when the native frame is used
   win = new BrowserWindow({
     width: 1400, height: 860, minWidth: 700, minHeight: 400, ...frameOpts,
@@ -121,6 +177,7 @@ function createWindow() {
     icon: path.join(__dirname, '../../assets/icon.png'),
     webPreferences: { preload: path.join(__dirname, '../preload/preload.js'), contextIsolation: true, sandbox: true, nodeIntegration: false, spellcheck: false },
   });
+  windows.add(win);
   win.loadFile(path.join(__dirname, '../renderer/index.html'));
   // Show as soon as anything is ready. On some Windows setups 'ready-to-show' never fires for a
   // titleBarOverlay window, so 'did-finish-load' and a hard timer are fallbacks — never stay hidden.
@@ -138,13 +195,13 @@ function createWindow() {
     if (bad || process.env.TERHUI_DEBUG) logLine('renderer', level === 'error' || level === 3 ? 'ERROR' : 'warn', message, `${source}:${line}`);
   });
   logLine('window created', { platform: process.platform, electron: process.versions.electron, frame: frameOpts, safe: SAFE_MODE, userData: app.getPath('userData') });
-  win.on('closed', () => { win = null; });
+  win.on('closed', () => { windows.delete(win); win = null; });
   win.on('enter-full-screen', () => send('window:fullscreen', true));
   win.on('leave-full-screen', () => send('window:fullscreen', false));
   win.webContents.setWindowOpenHandler(({ url }) => { if (/^https?:/.test(url)) shell.openExternal(url); return { action: 'deny' }; });
   win.on('close', (e) => {
     if (settings.confirmClose && sessions.sessions.size > 0 && !app.__quitting) {
-      const r = dialog.showMessageBoxSync(win, { type: 'question', buttons: ['Close', 'Cancel'], defaultId: 1, cancelId: 1, message: `Close terhui? ${sessions.sessions.size} active session(s) will be disconnected.` });
+      const r = dialog.showMessageBoxSync(win, { type: 'question', buttons: ['Close', 'Cancel'], defaultId: 1, cancelId: 1, message: `Close terhui? ${sessions.sessions.size + shells.sessions.size} active session(s) will be disconnected.` });
       if (r === 1) { e.preventDefault(); return; }
     }
     app.__quitting = true;
@@ -211,18 +268,18 @@ function registerIpc() {
     return vault.importHosts(fresh);
   });
   handle('hosts:exportFile', async () => {
-    const r = await dialog.showSaveDialog(win, { title: 'Export hosts (plain JSON, contains secrets!)', defaultPath: 'terhui-hosts.json', filters: [{ name: 'JSON', extensions: ['json'] }] });
+    const r = await dialog.showSaveDialog(dlgWin(), { title: 'Export hosts (plain JSON, contains secrets!)', defaultPath: 'terhui-hosts.json', filters: [{ name: 'JSON', extensions: ['json'] }] });
     if (r.canceled) return false;
     fs.writeFileSync(r.filePath, JSON.stringify(vault.exportPlain(), null, 2), { mode: 0o600 });
     return true;
   });
   handle('hosts:importFile', async () => {
-    const r = await dialog.showOpenDialog(win, { title: 'Import hosts JSON', properties: ['openFile'], filters: [{ name: 'JSON', extensions: ['json'] }] });
+    const r = await dialog.showOpenDialog(dlgWin(), { title: 'Import hosts JSON', properties: ['openFile'], filters: [{ name: 'JSON', extensions: ['json'] }] });
     if (r.canceled || !r.filePaths[0]) return null;
     return vault.importHosts(JSON.parse(fs.readFileSync(r.filePaths[0], 'utf8')));
   });
   handle('hosts:readKeyFile', async () => {
-    const r = await dialog.showOpenDialog(win, { title: 'Select private key', defaultPath: path.join(os.homedir(), '.ssh'), properties: ['openFile', 'showHiddenFiles'] });
+    const r = await dialog.showOpenDialog(dlgWin(), { title: 'Select private key', defaultPath: path.join(os.homedir(), '.ssh'), properties: ['openFile', 'showHiddenFiles'] });
     if (r.canceled || !r.filePaths[0]) return null;
     return { path: r.filePaths[0], content: fs.readFileSync(r.filePaths[0], 'utf8') };
   });
@@ -238,18 +295,19 @@ function registerIpc() {
   handle('knownhosts:remove', (host, port) => { knownHosts.remove(host, port); return true; });
 
   // ssh
-  handle('ssh:connect', async ({ hostId, entry, cols, rows }) => {
+  handle('ssh:connect', async function ({ hostId, entry, cols, rows }) {
     const full = hostId ? vault.get(hostId) : Vault.normalize(entry || {});
     if (!full) throw new Error('Host not found');
     if (full.protocol !== 'ssh') throw new Error('Terminal is SSH-only; this host is ' + full.protocol);
     const s = await sessions.connect(full);
     const sid = s.id;
-    s.on('data', (d) => send('ssh:data', { sessionId: sid, data: d }));
-    s.on('status', (status, detail) => send('ssh:status', { sessionId: sid, status, detail }));
-    s.on('close', (reason) => send('ssh:closed', { sessionId: sid, reason }));
-    s.on('shell-close', (info) => send('ssh:shell-closed', { sessionId: sid, ...info }));
-    s.on('banner', (msg) => send('ssh:banner', { sessionId: sid, msg }));
-    s.on('error', (err) => send('ssh:error', { sessionId: sid, message: err.message }));
+    owners.set(sid, this.sender);
+    s.on('data', (d) => sendSession(sid, 'ssh:data', { sessionId: sid, data: d }));
+    s.on('status', (status, detail) => sendSession(sid, 'ssh:status', { sessionId: sid, status, detail }));
+    s.on('close', (reason) => { sendSession(sid, 'ssh:closed', { sessionId: sid, reason }); owners.delete(sid); });
+    s.on('shell-close', (info) => sendSession(sid, 'ssh:shell-closed', { sessionId: sid, ...info }));
+    s.on('banner', (msg) => sendSession(sid, 'ssh:banner', { sessionId: sid, msg }));
+    s.on('error', (err) => sendSession(sid, 'ssh:error', { sessionId: sid, message: err.message }));
     await s.openShell(cols, rows);
     if (full.startDir && settings.shellIntegration === false) s.write(`cd ${shq(full.startDir)}\n`);   // otherwise the renderer's shell bootstrap does it
     return { sessionId: sid, hostId: full.id, host: full.host, username: s.entry.username };
@@ -305,8 +363,9 @@ function registerIpc() {
     execFile('wsl.exe', args, { windowsHide: true, timeout: 30000, encoding: 'utf16le' }, (err, out, errOut) => err ? reject(new Error(String(errOut || out || err.message).replace(/\0/g, '').trim())) : resolve(true));
   }));
   handle('profiles:save', (list) => { settings.localProfiles = Array.isArray(list) ? list : []; saveSettings(); return settings.localProfiles; });
-  handle('pty:spawn', ({ profile, cols, rows }) => {
+  handle('pty:spawn', function ({ profile, cols, rows }) {
     const s = shells.spawn(profile, cols, rows);
+    owners.set(s.id, this.sender);
     return { sessionId: s.id, home: os.homedir(), hostname: os.hostname() };
   });
   ipcMain.on('pty:write', (_e, { sessionId, data }) => shells.write(sessionId, data));
@@ -356,10 +415,10 @@ function registerIpc() {
   handle('index:clear', (hostId) => { indexer.clear(hostId); return true; });
 
   // dialogs, clipboard, misc
-  handle('dialog:open', async (opts) => { const r = await dialog.showOpenDialog(win, opts); return r.canceled ? null : r.filePaths; });
-  handle('dialog:save', async (opts) => { const r = await dialog.showSaveDialog(win, opts); return r.canceled ? null : r.filePath; });
+  handle('dialog:open', async (opts) => { const r = await dialog.showOpenDialog(dlgWin(), opts); return r.canceled ? null : r.filePaths; });
+  handle('dialog:save', async (opts) => { const r = await dialog.showSaveDialog(dlgWin(), opts); return r.canceled ? null : r.filePath; });
   handle('dialog:confirm', async ({ message, detail, buttons }) => {
-    const r = await dialog.showMessageBox(win, { type: 'question', message, detail, buttons: buttons || ['OK', 'Cancel'], defaultId: 0, cancelId: (buttons || ['OK', 'Cancel']).length - 1 });
+    const r = await dialog.showMessageBox(dlgWin(), { type: 'question', message, detail, buttons: buttons || ['OK', 'Cancel'], defaultId: 0, cancelId: (buttons || ['OK', 'Cancel']).length - 1 });
     return r.response;
   });
   // appearance: custom themes + wallpaper
@@ -371,7 +430,7 @@ function registerIpc() {
   };
   handle('themes:list', () => listThemes());
   handle('themes:import', async () => {
-    const r = await dialog.showOpenDialog(win, { title: 'Import colour scheme (xterm / Windows Terminal JSON)', properties: ['openFile', 'multiSelections'], filters: [{ name: 'JSON', extensions: ['json'] }] });
+    const r = await dialog.showOpenDialog(dlgWin(), { title: 'Import colour scheme (xterm / Windows Terminal JSON)', properties: ['openFile', 'multiSelections'], filters: [{ name: 'JSON', extensions: ['json'] }] });
     if (r.canceled) return listThemes();
     fs.mkdirSync(themesDir(), { recursive: true });
     for (const f of r.filePaths) {
@@ -384,7 +443,7 @@ function registerIpc() {
   handle('themes:save', (name, theme) => { fs.mkdirSync(themesDir(), { recursive: true }); fs.writeFileSync(path.join(themesDir(), name.replace(/[^\w .-]+/g, '_') + '.json'), JSON.stringify({ ...theme, name }, null, 2)); return listThemes(); });
   handle('themes:delete', (name) => { try { fs.unlinkSync(path.join(themesDir(), name.replace(/[^\w .-]+/g, '_') + '.json')); } catch (_) {} return listThemes(); });
   handle('wallpaper:pick', async () => {
-    const r = await dialog.showOpenDialog(win, { title: 'Choose wallpaper', properties: ['openFile'], filters: [{ name: 'Images', extensions: IMAGE_EXT }] });
+    const r = await dialog.showOpenDialog(dlgWin(), { title: 'Choose wallpaper', properties: ['openFile'], filters: [{ name: 'Images', extensions: IMAGE_EXT }] });
     return r.canceled ? null : r.filePaths[0];
   });
   handle('wallpaper:read', (p) => {
@@ -398,16 +457,18 @@ function registerIpc() {
   handle('clipboard:read', () => clipboard.readText());
   handle('clipboard:write', (t) => { clipboard.writeText(String(t)); return true; });
   handle('shell:openExternal', (url) => { if (/^https?:\/\//.test(url)) shell.openExternal(url); return true; });
-  handle('window:setTitle', (t) => { if (win) win.setTitle(t); return true; });
-  handle('window:info', () => ({ platform: process.platform, frame: settings.windowFrame !== 'native' ? 'integrated' : 'native', material: process.platform === 'win32' ? (settings.winMaterial || 'none') : 'none', maximized: !!(win && win.isMaximized()) }));
+  handle('window:setTitle', function (t) { const w = BrowserWindow.fromWebContents(this.sender); if (w) w.setTitle(t); return true; });
+  // tear-off windows
+  handle('window:detach', function ({ payload, x, y, width, height }) { createDetachedWindow({ x, y, width, height }, payload); return true; });
+  handle('window:attachMain', function ({ payload }) { if (!win || win.isDestroyed()) throw new Error('Main window is gone'); for (const p of payload.panes) if (p.sessionId) owners.set(p.sessionId, win.webContents); win.webContents.send('detach:init', payload); win.focus(); return true; });
+  handle('window:own', function (sessionIds) { for (const id of sessionIds || []) owners.set(id, this.sender); return true; });
+  handle('window:closeSelf', function () { const w = BrowserWindow.fromWebContents(this.sender); if (w && w !== win) setTimeout(() => { if (!w.isDestroyed()) w.close(); }, 50); return true; });
+  handle('window:info', function () { return { detached: BrowserWindow.fromWebContents(this.sender) !== win, platform: process.platform, frame: settings.windowFrame !== 'native' ? 'integrated' : 'native', material: process.platform === 'win32' ? (settings.winMaterial || 'none') : 'none', maximized: !!(win && win.isMaximized()) }; });
   // Keep the OS caption buttons / native title bar in the app's colours.
   handle('window:chrome', ({ bg, fg }) => {
     settings.chromeBg = bg; settings.chromeFg = fg; saveSettings();
     nativeTheme.themeSource = isDarkHex(bg) ? 'dark' : 'light';
-    if (win && settings.windowFrame !== 'native' && process.platform !== 'darwin' && typeof win.setTitleBarOverlay === 'function') {
-      try { win.setTitleBarOverlay({ color: bg, symbolColor: fg, height: 32 }); } catch (_) {}
-    }
-    if (win && !(process.platform === 'win32' && settings.winMaterial && settings.winMaterial !== 'none')) win.setBackgroundColor(bg);
+    for (const w of windows) { if (w.isDestroyed()) continue; if (settings.windowFrame !== 'native' && process.platform !== 'darwin' && typeof w.setTitleBarOverlay === 'function') { try { w.setTitleBarOverlay({ color: bg, symbolColor: fg, height: 32 }); } catch (_) {} } if (!(process.platform === 'win32' && settings.winMaterial && settings.winMaterial !== 'none')) w.setBackgroundColor(bg); }
     return true;
   });
   handle('app:relaunch', () => { app.__quitting = true; app.relaunch(); app.quit(); return true; });
@@ -436,8 +497,8 @@ else {
     history = new HistoryStore(ud);
     quick = new QuickUnlock(ud, logLine);
     shells = new LocalShellManager(ud);
-    shells.on('data', (id, d) => send('pty:data', { sessionId: id, data: d }));
-    shells.on('exit', (id, info) => send('pty:exit', { sessionId: id, ...info }));
+    shells.on('data', (id, d) => sendSession(id, 'pty:data', { sessionId: id, data: d }));
+    shells.on('exit', (id, info) => { sendSession(id, 'pty:exit', { sessionId: id, ...info }); owners.delete(id); });
     registerIpc();
     createWindow();
     app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(); });

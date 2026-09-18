@@ -343,7 +343,8 @@ window.Files = (() => {
     renderTransfers();
   }
   const visible = () => !$('#files').hidden;
-  function show() { $('#files').hidden = false; $('#files-resizer').hidden = false; refreshSources(); if (!panes[0].path) panes[0].setSource('local'); app.settings.filePanelOpen = true; window.api.settings.set({ filePanelOpen: true }); app.fitActive(); syncToTab(app.activeTab(), true); }
+  function show() { if (app.detached) return;   // torn-off windows are terminal-only
+    $('#files').hidden = false; $('#files-resizer').hidden = false; refreshSources(); if (!panes[0].path) panes[0].setSource('local'); app.settings.filePanelOpen = true; window.api.settings.set({ filePanelOpen: true }); app.fitActive(); syncToTab(app.activeTab(), true); }
   /** Point the remote pane at the active tab's file system (SFTP for SSH, the distro for WSL, local cwd otherwise). */
   let syncedTab = null;
   // "Follow terminal" is bound to whichever pane is active, not to a session: switching panes (even of the same

@@ -98,6 +98,16 @@ window.TabGroup = (() => {
       return best;
     }
 
+    /** Layout tree with panes replaced by their index in this.panes (for moving a tab between windows). */
+    serializeTree() { const walk = (n) => n.type === 'leaf' ? { type: 'leaf', pane: this.panes.indexOf(n.pane) } : { type: 'split', dir: n.dir, sizes: n.sizes.slice(), children: n.children.map(walk) }; return this.root ? walk(this.root) : null; }
+    /** Rebuild from serializeTree() output and an array of panes in the same order. */
+    restore(tree, panes) {
+      this.panes = panes.slice(); for (const p of panes) { p.group = this; paneById.set(p.id, p); }
+      const walk = (n) => n.type === 'leaf' ? { type: 'leaf', pane: panes[n.pane] } : { type: 'split', dir: n.dir, sizes: n.sizes.slice(), children: n.children.map(walk) };
+      this.root = tree ? walk(tree) : (panes[0] ? { type: 'leaf', pane: panes[0] } : null);
+      this.layout(); if (panes[0]) this.focus(panes[0]);
+    }
+
     // ---- tree helpers ----
     _find(node, pane) { if (!node) return null; if (node.type === 'leaf') return node.pane === pane ? node : null; return this._find(node.children[0], pane) || this._find(node.children[1], pane); }
     _parent(node, target) { if (!node || node.type === 'leaf') return null; if (node.children.includes(target)) return node; return this._parent(node.children[0], target) || this._parent(node.children[1], target); }

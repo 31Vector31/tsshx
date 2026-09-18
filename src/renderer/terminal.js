@@ -51,6 +51,7 @@ window.TerminalTab = (() => {
       this.term = term;
       this.fit = new FitAddon.FitAddon(); term.loadAddon(this.fit);
       this.search = new SearchAddon.SearchAddon(); term.loadAddon(this.search);
+      this.serializer = new SerializeAddon.SerializeAddon(); term.loadAddon(this.serializer);
       this.unicode = new Unicode11Addon.Unicode11Addon(); term.loadAddon(this.unicode); term.unicode.activeVersion = '11';
       term.loadAddon(new WebLinksAddon.WebLinksAddon((ev, uri) => { if (ev.ctrlKey || ev.metaKey || true) window.api.shell.openExternal(uri); }));
       term.open(this.wrap);
@@ -255,6 +256,19 @@ window.TerminalTab = (() => {
       if (run) this._send( '\r');
       this.term.focus();
     }
+
+    /** Everything needed to re-create this pane in another window (the session itself stays in main). */
+    toPayload() { return { sessionId: this.sessionId, hostId: this.hostId, entry: this.entry, profile: this.profile, title: this.title, cwd: this.cwd, remoteHome: this.remoteHome, status: this.status, buffer: this.serialize() }; }
+    serialize() { try { return this.serializer.serialize({ scrollback: 5000 }); } catch (_) { return ''; } }
+    /** Take over a live session that was created by another window. */
+    adopt(p) {
+      this.sessionId = p.sessionId || null; this.cwd = p.cwd || null; this.remoteHome = p.remoteHome || null;
+      if (p.buffer) this.term.write(p.buffer);
+      this._setStatus(p.status === 'connected' && p.sessionId ? 'connected' : 'closed');
+      if (this.status === 'connected') requestAnimationFrame(() => { this.fitNow(); this._resize(this.term.cols, this.term.rows); });
+    }
+    /** Drop the terminal widget but keep the session alive (it moves to another window). */
+    release() { this._ro.disconnect(); try { this.term.dispose(); } catch (_) {} this.wrap.remove(); this.sessionId = null; }
 
     async close() {
       if (this.sessionId) { try { await (this.local ? window.api.pty.close(this.sessionId) : window.api.ssh.close(this.sessionId)); } catch (_) {} }

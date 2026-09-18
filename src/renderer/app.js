@@ -2,7 +2,7 @@
 // Application wiring: vault flow, tabs, shortcuts, prompts, settings/appearance.
 window.App = (() => {
   const { $, $$, h } = UI;
-  const app = { tabs: [], activeId: null, settings: null, home: '', platform: 'linux', info: null };
+  const app = { tabs: [], activeId: null, settings: null, home: '', platform: 'linux', info: null, detached: new URLSearchParams(location.search).get('detached') === '1' };
   let lockTimer = null;
   const wallpaperCache = new Map(); // path -> data url
 
@@ -22,7 +22,7 @@ window.App = (() => {
   app.onPaneFocus = (pane) => { updateStatus(); app.updateIndexStatus(); renderTabs(); Files.syncToTab(pane); app.refreshStats(); };
 
   const paneCallbacks = {
-    onStatus: (tb, st) => { if (st === 'connected') Recent.add(tb); renderTabs(); updateStatus(); Files.onSessionsChanged(); Hosts.render(); if (st === 'connected' && tb === app.activeTab()) { Files.syncToTab(tb, true); app.refreshStats(); } if (st !== 'connected' && tb === app.activeTab()) app.refreshStats(); },
+    onStatus: (tb, st) => { if (st === 'connected' && !app.detached) Recent.add(tb); renderTabs(); updateStatus(); Files.onSessionsChanged(); Hosts.render(); if (st === 'connected' && tb === app.activeTab()) { Files.syncToTab(tb, true); app.refreshStats(); } if (st !== 'connected' && tb === app.activeTab()) app.refreshStats(); },
     onTitle: (tb, title) => { if (tb === app.activeTab()) window.api.window.setTitle(`${title} — terhui`); renderTabs(); },
     onCwd: (tb, p) => { console.debug('[cwd]', tb.id, tb.sessionId, p, 'active:', tb === app.activeTab()); Files.onCwd(tb, p); if (tb === app.activeTab()) updateStatus(); },
     onResize: (tb) => { if (tb === app.activeTab()) updateStatus(); },
@@ -40,7 +40,7 @@ window.App = (() => {
     activateTab(group.id);
     renderTabs();
     await pane.connect();
-    if (pane.status === 'connected') Recent.add(pane);
+    if (pane.status === 'connected' && !app.detached) Recent.add(pane);
     return pane;
   };
   app.split = (dir, from, before) => { from = from || app.activeTab(); if (!from) return; if (!dir) { const r = from.wrap.getBoundingClientRect(); dir = r.width > r.height * 1.5 ? 'h' : 'v'; } return app.openTerminal({ hostId: from.hostId, entry: from.entry, profile: from.profile, from, dir, before }); };
@@ -49,6 +49,39 @@ window.App = (() => {
   app.dropGroup = (g) => { const idx = app.tabs.indexOf(g); if (idx < 0) return; app.tabs.splice(idx, 1); g.wrap.remove(); if (app.activeId === g.id) { const next = app.tabs[Math.min(idx, app.tabs.length - 1)]; activateTab(next ? next.id : null); } renderTabs(); };
   /** Move a pane out of its group into a new tab. */
   app.detachPane = (pane) => { const src = pane.group; if (!src || src.panes.length < 2) return; src.remove(pane); const g = new TabGroup(app); app.tabs.push(g); $('#terminals').append(g.wrap); g.add(pane); activateTab(g.id); };
+  /** Move a whole tab (group) into a new window at screen position x,y — like dragging an editor tab out of an IDE. */
+  app.detachGroup = async (g, x, y) => {
+    if (!g || !g.panes.length) return;
+    const payload = { panes: g.panes.map(p => p.toPayload()), tree: g.serializeTree() };
+    const r = g.wrap.getBoundingClientRect();
+    try { await window.api.window.detach({ payload, x, y, width: Math.round(Math.min(r.width + 20, 1000)), height: Math.round(Math.min(r.height + 90, 700)) }); }
+    catch (e) { UI.errToast(e); return; }
+    for (const p of g.panes) p.release();
+    g.panes = []; app.dropGroup(g);
+    if (app.detached && !app.tabs.length) window.api.window.closeSelf();
+  };
+  /** From a detached window: send the tab back to the main window. */
+  app.attachToMain = async (g) => {
+    const payload = { panes: g.panes.map(p => p.toPayload()), tree: g.serializeTree() };
+    try { await window.api.window.attachMain({ payload }); } catch (e) { UI.errToast(e); return; }
+    for (const p of g.panes) p.release();
+    g.panes = []; app.dropGroup(g);
+    if (!app.tabs.length) window.api.window.closeSelf();
+  };
+  /** Receive a tab from another window: rebuild the panes and take over their sessions. */
+  window.api.on('detach:init', (payload) => {
+    if (!app.ready) { const t = setInterval(() => { if (app.ready) { clearInterval(t); adoptPayload(payload); } }, 50); return; }   // the event can arrive before init() finished
+    adoptPayload(payload);
+  });
+  function adoptPayload(payload) {
+    const panes = payload.panes.map(p => { const pane = new TerminalTab({ hostId: p.hostId, entry: p.entry, profile: p.profile, settings: app.settings, callbacks: paneCallbacks }); pane.title = p.title; return pane; });
+    const g = new TabGroup(app); app.tabs.push(g); $('#terminals').append(g.wrap);
+    g.restore(payload.tree, panes);
+    activateTab(g.id);
+    window.api.window.own(payload.panes.map(p => p.sessionId).filter(Boolean));
+    panes.forEach((pane, i) => pane.adopt(payload.panes[i]));
+    renderTabs(); updateStatus();
+  }
   app.focusNeighbor = (direction) => { const g = app.activeGroup(); const p = app.activeTab(); if (!g || !p) return; const n = g.neighbor(p, direction); if (n) g.focus(n); };
 
   function activateTab(id) {
@@ -73,7 +106,7 @@ window.App = (() => {
       if (app.activeId === g.id) { const next = app.tabs[Math.min(idx, app.tabs.length - 1)]; activateTab(next ? next.id : null); }
     }
     renderTabs(); updateStatus(); Files.onSessionsChanged(); Hosts.render();
-    if (!app.tabs.length) window.api.window.setTitle('terhui');
+    if (!app.tabs.length) { window.api.window.setTitle('terhui'); if (app.detached) window.api.window.closeSelf(); }
   }
   app.closePane = closePane;
   async function closeTab(id, force) {
@@ -123,11 +156,18 @@ window.App = (() => {
         h('span', { class: 'close tab-close', title: t('close'), onClick: (e) => { e.stopPropagation(); closeTab(g.id); } }, Icon('close', 12)));
       el.draggable = true;
       el.addEventListener('dragstart', (e) => { e.dataTransfer.setData('text/plain', g.id); e.dataTransfer.effectAllowed = 'move'; TabGroup.startDrag('tab', g.id); });
-      el.addEventListener('dragend', TabGroup.endDrag);
+      el.addEventListener('dragend', (e) => {
+        TabGroup.endDrag();
+        // dropped outside the window (no target accepted it and the pointer left the viewport) → tear the tab off
+        const outside = e.clientX < 0 || e.clientY < 0 || e.clientX > window.innerWidth || e.clientY > window.innerHeight;
+        if (e.dataTransfer.dropEffect === 'none' && outside && (app.tabs.length > 1 || app.detached)) app.detachGroup(g, e.screenX - 60, e.screenY - 20);
+        else if (e.dataTransfer.dropEffect === 'none' && outside && !app.detached) app.detachGroup(g, e.screenX - 60, e.screenY - 20);
+      });
       el.addEventListener('contextmenu', (e) => { e.preventDefault(); activateTab(g.id); UI.ctxmenu(e.clientX, e.clientY, [
         { label: t('pane.splitRight'), kbd: IS_MAC ? 'Cmd+D' : 'Ctrl+Shift+5', onClick: () => app.split('h') },
         { label: t('pane.splitDown'), kbd: IS_MAC ? 'Cmd+Shift+D' : 'Ctrl+Shift+6', onClick: () => app.split('v') },
         { label: t('tab.duplicate'), onClick: () => app.openTerminal({ hostId: p.hostId, entry: p.entry, profile: p.profile }) },
+        app.detached ? { label: t('tab.attach'), onClick: () => app.attachToMain(g) } : { label: t('tab.detach'), onClick: () => app.detachGroup(g, window.screenX + 80, window.screenY + 80) },
         '-',
         { label: t('menu.files'), onClick: () => p.local ? Files.openFor({ local: true, path: p.fsHome() }) : p.sessionId && Files.openFor({ sessionId: p.sessionId }), disabled: !p.sessionId },
         { label: t('tab.reconnect'), onClick: () => p.reconnect(), disabled: p.status === 'connected' },
@@ -536,6 +576,7 @@ window.App = (() => {
     app.info = await window.api.app.info(); app.home = app.info.home; app.platform = app.info.platform;
     const wi = await window.api.window.info();
     document.body.classList.toggle('wco', wi.frame === 'integrated');
+    document.body.classList.toggle('detached', app.detached);
     document.body.classList.toggle('mac', wi.platform === 'darwin');
     window.api.on('window:fullscreen', (on) => { document.body.classList.toggle('fullscreen', !!on); app.fitActive(); });
     document.body.classList.toggle('material', wi.material !== 'none');
@@ -557,8 +598,8 @@ window.App = (() => {
     $('#btn-settings').addEventListener('click', openSettings);
     $('#btn-lock').addEventListener('click', lock);
     window.addEventListener('resize', () => app.fitActive());
-    await startUnlocked();
-    if (app.settings.filePanelOpen) Files.show();
+    if (app.detached) { try { await Hosts.refresh(); } catch (_) {} }   // vault is already open in main; no lock screen here
+    else { await startUnlocked(); if (app.settings.filePanelOpen) Files.show(); }
     startStats();
     app.ready = true;
   }

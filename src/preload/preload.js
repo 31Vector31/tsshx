@@ -1,7 +1,7 @@
 'use strict';
 const { contextBridge, ipcRenderer, webUtils } = require('electron');
 
-const EVENTS = new Set(['ssh:data', 'ssh:status', 'ssh:closed', 'ssh:shell-closed', 'ssh:banner', 'ssh:error', 'pty:data', 'pty:exit', 'xfer:progress', 'index:progress', 'prompt', 'window:fullscreen']);
+const EVENTS = new Set(['ssh:data', 'ssh:status', 'ssh:closed', 'ssh:shell-closed', 'ssh:banner', 'ssh:error', 'pty:data', 'pty:exit', 'xfer:progress', 'index:progress', 'prompt', 'window:fullscreen', 'detach:init']);
 
 const invoke = (ch) => (...args) => ipcRenderer.invoke(ch, ...args);
 
@@ -38,7 +38,7 @@ contextBridge.exposeInMainWorld('api', {
   wallpaper: { pick: invoke('wallpaper:pick'), read: invoke('wallpaper:read') },
   clipboard: { read: invoke('clipboard:read'), write: invoke('clipboard:write') },
   shell: { openExternal: invoke('shell:openExternal') },
-  window: { setTitle: invoke('window:setTitle'), info: invoke('window:info'), chrome: invoke('window:chrome'), relaunch: invoke('app:relaunch') },
+  window: { setTitle: invoke('window:setTitle'), info: invoke('window:info'), chrome: invoke('window:chrome'), relaunch: invoke('app:relaunch'), detach: invoke('window:detach'), attachMain: invoke('window:attachMain'), own: invoke('window:own'), closeSelf: invoke('window:closeSelf') },
   theme: { native: invoke('theme:native') },
   answerPrompt: (id, value) => ipcRenderer.send('prompt:answer', { id, value }),
   pathForFile: (file) => { try { return webUtils.getPathForFile(file); } catch (_) { return null; } },
