@@ -32,7 +32,8 @@ npm run dist:linux # AppImage + deb   (dist:win → Setup installer + portable e
 - Section "Local" in the sidebar: auto-detected shells (Windows: PowerShell 7, Windows PowerShell, cmd, every WSL distro,
   Git Bash; macOS/Linux: login shell, zsh, bash, fish), editable profiles (command, args, start dir, colour). node-pty
   (ConPTY on Windows). Local tabs get the same splits, history palette (bash/zsh/fish/PSReadLine files), directory index and
-  file panel. Shell integration for local shells is injected through the environment (PROMPT_COMMAND for bash,
+  file panel; the context menu of a WSL profile can restart the distro (`wsl --terminate`) or shut WSL down, open tabs reconnect.
+  Shell integration for local shells is injected through the environment (PROMPT_COMMAND for bash,
   WSLENV for WSL, a private ZDOTDIR for zsh), so nothing is typed into the shell. WSL tabs browse the distro's own file
   system through `\\wsl.localhost\<Distro>\` with paths mapped both ways (`/mnt/c` ↔ `C:\`).
 
