@@ -23,6 +23,18 @@ window.TerminalTab = (() => {
   }
   window.fontStack = fontStack;
 
+  // The icon font is loaded from the app's own files. A terminal built before it arrives would keep drawing the
+  // fallback glyphs from its cached glyph atlas (visible until something forces a redraw, e.g. a selection), so
+  // the load is started right away and every terminal redraws itself once it is in.
+  const fontsReady = (async () => {
+    try {
+      const px = '16px "Symbols Nerd Font Mono"';
+      await Promise.all([document.fonts.load(px), document.fonts.load('bold ' + px)]);
+      await document.fonts.ready;
+    } catch (_) { /* fall back to whatever the system provides */ }
+  })();
+  window.fontsReady = fontsReady;
+
   class TerminalTab {
     /**
      * @param {object} o { hostId, entry (public view or adhoc entry), settings, container, callbacks:{onTitle,onStatus,onCwd,onClosed} }
@@ -44,6 +56,7 @@ window.TerminalTab = (() => {
       if (o.container) o.container.append(this.wrap);
       this.group = null;
       this._buildTerm();
+      fontsReady.then(() => this.refreshFont());
     }
 
     _buildTerm() {
@@ -132,7 +145,12 @@ window.TerminalTab = (() => {
 
     /** Re-render with the current font (after a web font finished loading the glyph atlas is stale). */
     refreshFont() {
-      try { if (this.webgl) this.webgl.clearTextureAtlas(); else if (this.term.clearTextureAtlas) this.term.clearTextureAtlas(); } catch (_) {}
+      try {
+        const f = this.term.options.fontFamily;
+        this.term.options.fontFamily = f + ' ';   // a real change makes xterm re-measure the character size
+        this.term.options.fontFamily = f;
+        if (this.webgl) this.webgl.clearTextureAtlas(); else if (this.term.clearTextureAtlas) this.term.clearTextureAtlas();
+      } catch (_) {}
       this.fitNow(); try { this.term.refresh(0, this.term.rows - 1); } catch (_) {}
     }
     fitNow() {

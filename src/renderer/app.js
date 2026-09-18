@@ -685,7 +685,6 @@ window.App = (() => {
     $('#btn-settings').addEventListener('click', openSettings);
     $('#btn-lock').addEventListener('click', lock);
     window.addEventListener('resize', () => app.fitActive());
-    document.fonts.ready.then(() => { for (const p of app.panes()) p.refreshFont(); }).catch(() => {});   // redraw the glyph atlas once fonts are in
     app.ready = true;   // tabs from other windows can be adopted from here on, even while the lock screen is up
     if (app.detached) { try { await Hosts.refresh(); } catch (_) {} }   // vault is already open in main; no lock screen here
     else { await startUnlocked(); if (app.settings.filePanelOpen) Files.show(); }
